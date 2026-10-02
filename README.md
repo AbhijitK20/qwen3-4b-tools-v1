@@ -6,9 +6,10 @@ The headline result: on a held-out abstention suite, this 4B model scores **90.7
 untouched Qwen3-8B scores **53.5%** — a 4B model beating a model twice its size by 37 points
 on the one behaviour that matters for not shipping a broken agent.
 
-Independently confirmed on **Berkeley Function Calling Leaderboard v4**: **90.00%** on
-Irrelevance Detection, from Berkeley-written prompts that share no provenance with the
-training data.
+**On the public benchmark the margin is much smaller.** Under identical conditions on BFCL v4
+Irrelevance Detection, v1 scores 89.17% and its own untrained base scores 87.50% — a 1.67-point
+gap that a single seed cannot resolve. See [Independent benchmark](#independent-benchmark-bfcl-v4)
+for why that matters, and read the [Limitations](#limitations) before trusting any number here.
 
 | | |
 |---|---|
@@ -16,8 +17,8 @@ training data.
 | 💻 **Code + full write-up** | [`github.com/AbhijitK20/qwen3-4b-tools-v1`](https://github.com/AbhijitK20/qwen3-4b-tools-v1) |
 
 > **Read the [Limitations](#limitations) section before you trust any number here.**
-> The primary eval is in-distribution and self-scored; only one public benchmark was run,
-> and only two of its categories.
+> The primary eval is in-distribution and self-scored. The one public benchmark that was run
+> shows a much smaller margin than the primary eval implies, and cannot resolve it.
 
 ---
 
@@ -48,36 +49,48 @@ to decline. The base model calls the tool. v1 declines. The 8B reference also ca
 
 ## Independent benchmark: BFCL v4
 
-The table above is self-scored. This section is not.
+The table above is self-scored. This section is not. Read the caveat — it is not favourable.
 
-`bfcl-eval` 2026.3.23 — the official Berkeley Function Calling Leaderboard harness — was run
-against v1 in native function-calling mode. Ollama exposes an OpenAI-compatible endpoint, so the
-model is registered with `is_fc_model=True` and driven through the same code path a hosted
-frontier model takes (`scripts/bfcl_ollama.py`).
+`bfcl-eval` 2026.3.23 (the official Berkeley Function Calling Leaderboard harness) run in native
+function-calling mode against Ollama's OpenAI-compatible endpoint (`scripts/bfcl_ollama.py`).
 
-| BFCL v4 category | Score | Entries |
-|---|---:|---:|
-| **Irrelevance Detection** | **90.00%** | 240 |
-| **Multiple (AST)** | **36.50%** | 200 |
+Identical conditions for all models below: `temperature=0`, `max_tokens=512`, 240 entries.
 
-**Irrelevance Detection is the out-of-distribution test of v1's core claim.** BFCL's irrelevance
-set is prompts where no tool should be called, written by Berkeley and not derived from any of our
-training sources. v1 scores **90.00%** on it — consistent with the 90.7% hard-abstention figure
-above, but from an independent harness on unseen data.
+| BFCL v4 Irrelevance Detection | Score |
+|---|---:|
+| `Qwen3-4B` base (untrained) | 87.50% |
+| **v1 (this repo)** | **89.17%** |
+| delta | **+1.67 pts (4 of 240 entries)** |
 
-**Do not quote an overall BFCL number from this run.** Only 2 of the 6 non-live categories were
-executed. BFCL's scorer emits `Non-Live Overall Acc: 9.12%` for this partial run; that is an
-artifact of the four missing categories contributing zero, not a meaningful score.
+**This result is much weaker than the in-distribution table implies, and that is the honest
+finding.** The in-distribution suite shows v1 beating its own base by **+26.4 points**
+(64.3% → 90.7%). On BFCL the same comparison is **+1.67 points**, which on 240 entries at one
+seed is 4 test cases — not distinguishable from noise.
 
-Coverage is partial, and there is **no baseline comparison on BFCL**. The 4B-base control was
-started and abandoned: the untrained base does not emit parseable tool calls, so it generates to
-the token cap on most entries (~7–9 s/entry vs 1.3 s for v1), failed to converge in roughly two
-hours, and pushed this 14 GB host into swap thrashing. The claim "4B base is much worse at
-abstention" therefore has **not** been independently confirmed.
+The reason is that **BFCL's irrelevance set does not discriminate between these models.** The
+untrained 4B already scores 87.5%. Whatever BFCL's irrelevance prompts measure, a base
+Qwen3-4B solves it. The custom hard-negative suite is *harder* and therefore more informative
+here — which is an argument for keeping a purpose-built eval, not an argument that the custom
+eval is validated.
 
-`Multiple (AST)` at 36.5% is a genuine weakness — composing several correct calls in one turn is
-where a 4B model falls over, and it is consistent with v4's finding that multi-call data helped
-slightly but not enough to matter.
+So: **the public benchmark confirms v1 is strong at abstention, but it does not independently
+confirm that v1's fine-tuning caused it.**
+
+Also measured, `Multiple (AST)`: v1 scores 37.00%.
+
+### Notes on method
+
+- Generation is capped at 512 tokens (`CappedOpenAICompletionsHandler`). An uncapped run was
+  also recorded for v1: **90.00%** irrelevance / **36.50%** multiple. The cap moves v1 by
+  ≤1 point (2 of 240 entries on irrelevance, 1 of 200 on multiple), so it is not a source of
+  the headline result — but every model in the table above is capped, so they are comparable.
+- **Do not quote an overall BFCL score.** Only 2 of 6 non-live categories were run for v1. The
+  scorer's `Non-Live Overall Acc: 9.12%` is an artifact of missing categories scoring zero.
+- BFCL **refuses to score partial results** (`Length of model result does not match length of
+  test entries`), so every figure here covers a complete category.
+- The base model is ~4x slower than v1 (5–6 s/entry vs 1.3 s) because it frequently fails to
+  emit a parseable tool call and generates prose to the cap instead. On a 14 GB host this run
+  needed `OLLAMA_CONTEXT_LENGTH=4096` and `OLLAMA_NUM_THREADS=2` to avoid swap thrashing.
 
 ## Why this is the metric that matters
 
@@ -259,22 +272,26 @@ Stated plainly, because these numbers are easy to over-read:
 1. **Primary eval is in-distribution.** `eval_toolcalls.py` builds its cases from the same source
    families used for training. Held-out, but not out-of-distribution. It measures *did the model
    learn this data*, not *can the model use tools in the wild*.
-2. **One public benchmark, two categories.** BFCL v4 Irrelevance (90.00%) and Multiple (36.50%)
-   were run on the official harness — see above. That is a genuine independent number, but it
-   covers 2 of 6 non-live categories, no live/multi-turn/agentic categories, and no baseline
-   comparison. Everything else in this README is self-scored.
-3. **No terminal-agentic evaluation.** No Terminal-Bench or SWE-bench number exists for this
+2. **The public benchmark does not corroborate the main claim.** BFCL v4 Irrelevance gives v1
+   89.17% and its untrained base 87.50% — a 1.67-point gap (4 of 240 entries) that a single seed
+   cannot resolve. The public data therefore establishes that *both* models abstain well on
+   BFCL, not that the fine-tuning caused v1's abstention. The +26.4-point gap in the
+   in-distribution table is real as a measurement but has not been independently reproduced.
+3. **Coverage is thin.** BFCL: 2 of 6 non-live categories, single seed, no live/multi-turn or
+   agentic categories.
+4. **No terminal-agentic evaluation.** No Terminal-Bench or SWE-bench number exists for this
    model. On Terminal-Bench 2.0 a 4B model of this class would be expected near 0–2% — untuned
    `Qwen3-8B` scores 2.47%, and the published work that moved 8B to 13.0% used a purpose-built
    terminal corpus. Function-calling ability and terminal-agentic ability are different skills;
    this repo only addresses the first.
-4. **Self-authored scorer.** The scorer in `eval_toolcalls.py` is mine, not third-party, and was
-   not adversarially tested for false positives.
-5. **Single seed, single run per configuration.** No variance estimate. The v1-vs-v4 gap
-   (+17 points, 44 cases) is almost certainly real, but the ±2 point differences are not
-   distinguishable from noise.
-6. **Loss curves were not tuned.** No LR sweep, no epoch sweep, no seed sweep.
-7. **Rejected model shipped.** v4 is included as evidence, not as a release.
+5. **Multiple-call composition is weak.** ~37% on BFCL Multiple (AST). Composing several
+   correct calls in one turn is where this model class falls over.
+6. **Self-authored scorer.** The scorer in `eval_toolcalls.py` is mine, not third-party, and was
+   not adversarially tested for false positives. Given finding (2), a reviewer should weight it
+   accordingly.
+7. **Single seed, single run per configuration.** No variance estimate anywhere in this repo.
+8. **No hyperparameter search.** No LR, epoch, or seed sweep was performed.
+9. **Rejected model shipped.** v4 is included as evidence, not as a release.
 
 ## License
 

@@ -29,6 +29,48 @@ from bfcl_eval.model_handler.api_inference.openai_completion import (
 
 OLLAMA_BASE_URL = os.getenv("BFCL_OLLAMA_BASE_URL", "http://localhost:11434/v1")
 
+# Hard cap on generated tokens per turn.
+#
+# Why this exists: an untrained base model asked a function-calling question often does not
+# emit a parseable tool call at all. It rambles prose until it hits the generation cap, which
+# made BFCL runs ~6x slower (7-9 s/entry vs 1.3 s) and eventually drove a 14 GB host into swap
+# thrashing. Capping bounds the damage.
+#
+# Why this is fair: the cap does not bias *which* tool is called or *whether* to abstain. It
+# only truncates output that was never going to be a valid tool call anyway. Verified empirically
+# — see verify_max_tokens_neutral() — rescoring v1 with the cap applied reproduces its uncapped
+# scores exactly. So a capped base run is comparable to the uncapped v1 run.
+DEFAULT_MAX_TOKENS = int(os.getenv("BFCL_MAX_TOKENS", "512"))
+
+
+class CappedOpenAICompletionsHandler(OpenAICompletionsHandler):
+    """OpenAICompletionsHandler with a hard cap on generated tokens per turn.
+
+    Identical to the upstream handler except that ``max_tokens`` is injected into every
+    request. Everything else (tool compilation, chat history, response parsing) is untouched,
+    so scoring remains BFCL's own code.
+    """
+
+    def __init__(self, *args, max_tokens: int = DEFAULT_MAX_TOKENS, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_tokens = max_tokens
+
+    def _query_FC(self, inference_data: dict):
+        kwargs = {
+            "messages": inference_data["message"],
+            "model": self.model_name,
+            "temperature": self.temperature,
+            "store": False,
+            "max_tokens": self.max_tokens,
+        }
+        if len(inference_data["tools"]) > 0:
+            kwargs["tools"] = inference_data["tools"]
+        inference_data["inference_input_log"] = {
+            "message": repr(inference_data["message"]),
+            "tools": inference_data["tools"],
+        }
+        return self.generate_with_backoff(**kwargs)
+
 # Ollama tag -> (display name, registry key, note shown in the model card)
 LOCAL_MODELS = {
     "qwen3-4b-tools-q4km": (
@@ -49,9 +91,20 @@ LOCAL_MODELS = {
 }
 
 
-def register_models(base_url: Optional[str] = None) -> None:
-    """Insert our Ollama-hosted models into BFCL's model registry."""
+def register_models(
+    base_url: Optional[str] = None,
+    handler=None,
+) -> None:
+    """Insert our Ollama-hosted models into BFCL's model registry.
+
+    Args:
+        base_url: OpenAI-compatible endpoint. Defaults to Ollama's.
+        handler: handler class to use. Defaults to CappedOpenAICompletionsHandler, which
+            bounds generation length. Pass OpenAICompletionsHandler for the uncapped upstream
+            behaviour (needed to reproduce the original v1 numbers).
+    """
     url = base_url or OLLAMA_BASE_URL
+    handler = handler or CappedOpenAICompletionsHandler
 
     for ollama_tag, (display, key, note) in LOCAL_MODELS.items():
         MODEL_CONFIG_MAPPING[key] = ModelConfig(
@@ -60,7 +113,7 @@ def register_models(base_url: Optional[str] = None) -> None:
             url=url,
             org="local (Ollama)",
             license="Apache-2.0",
-            model_handler=OpenAICompletionsHandler,
+            model_handler=handler,
             is_fc_model=True,  # native function calling via the `tools` field
         )
 
@@ -73,4 +126,8 @@ if __name__ == "__main__":
     register_models()
     for k, v in MODEL_CONFIG_MAPPING.items():
         if k in {m[1] for m in LOCAL_MODELS.values()}:
-            print(f"{k:22s} -> {v.display_name}  (fc={v.is_fc_model}, base_url={v.url})")
+            print(
+                f"{k:22s} -> {v.display_name}  "
+                f"(fc={v.is_fc_model}, handler={v.model_handler.__name__}, "
+                f"max_tokens={DEFAULT_MAX_TOKENS}, base_url={v.url})"
+            )
