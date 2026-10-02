@@ -54,6 +54,9 @@ def main():
     ap.add_argument("--tok-prefix", default="",
                     help="dataset suffix: '' -> data/tok_train (v1), "
                          "'_v3' -> data/tok_train_v3 (augmented mix)")
+    ap.add_argument("--seed", type=int, default=3407,
+                    help="random seed. Vary this to measure run-to-run variance; "
+                         "the shipped v1 used the default 3407.")
     ap.add_argument("--out", default=str(BASE / "output" / "qwen3-8b-tools"))
     args = ap.parse_args()
 
@@ -66,7 +69,7 @@ def main():
         load_in_4bit=True,
         dtype=None,
         use_gradient_checkpointing="unsloth",
-        random_state=3407,
+        random_state=args.seed,
         offload_embedding=args.offload_embedding,
     )
 
@@ -79,7 +82,7 @@ def main():
         lora_dropout=0.0,
         bias="none",
         use_gradient_checkpointing=(False if args.no_gc else "unsloth"),
-        random_state=3407,
+        random_state=args.seed,
     )
 
     print("[2] datasets (pre-tokenized, assistant-only labels)")
@@ -90,7 +93,7 @@ def main():
     tok_val = load_from_disk(str(BASE / "data" / f"tok_val{args.tok_prefix}"))
     n0 = len(tok_train)
     if args.max_samples:
-        tok_train = tok_train.shuffle(seed=3407).select(
+        tok_train = tok_train.shuffle(seed=args.seed).select(
             range(min(args.max_samples, len(tok_train))))
     ds = {"train": tok_train, "val": tok_val}
     sup = sum(int(sum(1 for v in lab if v != -100)) for lab in ds["train"][:1000]["labels"]) / 1000
@@ -129,7 +132,8 @@ def main():
         save_total_limit=4,
         gradient_checkpointing=not args.no_gc,
         dataset_num_proc=8,
-        seed=3407,
+        seed=args.seed,
+        data_seed=args.seed,
     )
 
     trainer = SFTTrainer(model=model, tokenizer=tokenizer,
