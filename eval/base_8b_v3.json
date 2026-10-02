@@ -1,0 +1,31 @@
+{
+  "model": "qwen3:8b",
+  "format": 119,
+  "name": 119,
+  "args": 103,
+  "no_call": 0,
+  "total": 120,
+  "abstain_total": 270,
+  "abstain_ok": 150,
+  "abstain_hard_total": 258,
+  "abstain_hard_ok": 138,
+  "errors": 0,
+  "per_source": {
+    "toolace": [
+      22,
+      23
+    ],
+    "glaive": [
+      97,
+      97
+    ],
+    "abstain_easy": [
+      12,
+      12
+    ],
+    "abstain_hard": [
+      138,
+      258
+    ]
+  }
+}

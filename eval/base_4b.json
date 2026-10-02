@@ -1,0 +1,21 @@
+{
+  "model": "qwen3-4b-base-q4km",
+  "format": 110,
+  "name": 110,
+  "args": 97,
+  "no_call": 0,
+  "total": 120,
+  "abstain_total": 0,
+  "abstain_ok": 0,
+  "errors": 0,
+  "per_source": {
+    "glaive": [
+      102,
+      105
+    ],
+    "toolace": [
+      8,
+      15
+    ]
+  }
+}

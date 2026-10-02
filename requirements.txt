@@ -1,0 +1,20 @@
+# Verified against the environment these models were trained and evaluated in.
+# Python 3.12 on Linux. CUDA 12.x wheels required (torch is cu130 here).
+
+torch==2.14.0+cu130
+transformers==4.57.6
+trl==0.24.0
+peft==0.21.0
+datasets==4.3.0
+accelerate==1.15.0
+bitsandbytes==0.50.2
+unsloth==2026.9.12
+
+# Merging + GGUF export
+#   pip install -r repos/llama.cpp/requirements.txt   (from a llama.cpp checkout)
+# llama.cpp itself is NOT vendored here; merge_export.py expects it at
+# repos/llama.cpp with build/bin/llama-quantize already compiled.
+
+# Eval harness talks to Ollama over its local HTTP API (no python dep),
+# but you need Ollama running with the GGUF loaded:
+#   ollama create qwen3-4b-tools-q4km -f Modelfile

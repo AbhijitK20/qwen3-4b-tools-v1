@@ -1,0 +1,41 @@
+# Large binaries and third-party checkouts — never commit these
+hf_cache/
+repos/
+logs/
+output/
+unsloth_compiled_cache/
+training/
+data/hf_cache/
+
+# LoRA adapters and merged weights go to Hugging Face, not git.
+# They're 126 MB (adapter) / 2.33 GB (GGUF) each.
+*.gguf
+*.safetensors
+*.bin
+*.pt
+
+# Training data: derived from public datasets, regenerable via scripts/prep_data_*.py
+# Kept out of git so the repo stays small and readable. See README "Reproducing".
+data/*.jsonl
+data/tok_*/
+
+# Tokenizers renderings are large text dumps
+data/train_rendered.jsonl
+data/val_rendered.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Tooling
+.DS_Store
+*.log
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
