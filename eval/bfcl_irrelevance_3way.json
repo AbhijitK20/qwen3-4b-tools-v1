@@ -1,0 +1,19 @@
+{
+  "benchmark": "BFCL v4",
+  "category": "irrelevance",
+  "entries": 240,
+  "conditions": {
+    "temperature": 0,
+    "max_tokens": 512,
+    "endpoint": "ollama /v1 (OpenAI-compatible)"
+  },
+  "harness": "bfcl-eval 2026.3.23 (official)",
+  "scores": {
+    "qwen3-4b-base (untrained)": 87.5,
+    "qwen3-8b (untouched)": 88.33,
+    "qwen3-4b-tools-v1 (ours)": 89.17
+  },
+  "spread_points": 1.67,
+  "spread_entries_of_240": 4,
+  "interpretation": "All three models are statistically indistinguishable at one seed. The self-scored in-distribution eval reports +26.4 pts over base and +37 pts over 8B; neither replicates on the public benchmark. This is a negative result for the adapter's headline claim."
+}

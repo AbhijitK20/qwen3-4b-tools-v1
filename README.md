@@ -6,10 +6,12 @@ The headline result: on a held-out abstention suite, this 4B model scores **90.7
 untouched Qwen3-8B scores **53.5%** — a 4B model beating a model twice its size by 37 points
 on the one behaviour that matters for not shipping a broken agent.
 
-**On the public benchmark the margin is much smaller.** Under identical conditions on BFCL v4
-Irrelevance Detection, v1 scores 89.17% and its own untrained base scores 87.50% — a 1.67-point
-gap that a single seed cannot resolve. See [Independent benchmark](#independent-benchmark-bfcl-v4)
-for why that matters, and read the [Limitations](#limitations) before trusting any number here.
+**On the public benchmark the claim does not hold up.** Under identical conditions on BFCL v4
+Irrelevance Detection the three models are within noise of each other — base 87.50%,
+Qwen3-8B 88.33%, v1 89.17%, a total spread of 4 entries out of 240. The 37-point margin above is
+real as a *measurement* but does not replicate publicly. See
+[Independent benchmark](#independent-benchmark-bfcl-v4) and read the
+[Limitations](#limitations) before trusting any number here.
 
 | | |
 |---|---|
@@ -17,8 +19,9 @@ for why that matters, and read the [Limitations](#limitations) before trusting a
 | 💻 **Code + full write-up** | [`github.com/AbhijitK20/qwen3-4b-tools-v1`](https://github.com/AbhijitK20/qwen3-4b-tools-v1) |
 
 > **Read the [Limitations](#limitations) section before you trust any number here.**
-> The primary eval is in-distribution and self-scored. The one public benchmark that was run
-> shows a much smaller margin than the primary eval implies, and cannot resolve it.
+> The primary eval is in-distribution and self-scored. On the one public benchmark that was run,
+> all three models — including the untrained baselines — land within noise of each other. The
+> large margin in the primary eval does not replicate.
 
 ---
 
@@ -54,27 +57,30 @@ The table above is self-scored. This section is not. Read the caveat — it is n
 `bfcl-eval` 2026.3.23 (the official Berkeley Function Calling Leaderboard harness) run in native
 function-calling mode against Ollama's OpenAI-compatible endpoint (`scripts/bfcl_ollama.py`).
 
-Identical conditions for all models below: `temperature=0`, `max_tokens=512`, 240 entries.
+Identical conditions for all models below: `temperature=0`, `max_tokens=512`, full 240-entry category.
 
 | BFCL v4 Irrelevance Detection | Score |
 |---|---:|
 | `Qwen3-4B` base (untrained) | 87.50% |
+| `Qwen3-8B` (untouched) | 88.33% |
 | **v1 (this repo)** | **89.17%** |
-| delta | **+1.67 pts (4 of 240 entries)** |
+| spread across all three | **1.67 pts = 4 of 240 entries** |
 
-**This result is much weaker than the in-distribution table implies, and that is the honest
-finding.** The in-distribution suite shows v1 beating its own base by **+26.4 points**
-(64.3% → 90.7%). On BFCL the same comparison is **+1.67 points**, which on 240 entries at one
-seed is 4 test cases — not distinguishable from noise.
+**This result does not support the headline, and the honest reading is that it contradicts it.**
 
-The reason is that **BFCL's irrelevance set does not discriminate between these models.** The
-untrained 4B already scores 87.5%. Whatever BFCL's irrelevance prompts measure, a base
-Qwen3-4B solves it. The custom hard-negative suite is *harder* and therefore more informative
-here — which is an argument for keeping a purpose-built eval, not an argument that the custom
-eval is validated.
+Every pairwise gap here is 2–4 test cases out of 240. v1 over the 8B is 0.84 points. v1 over its
+own base is 1.67 points. None of that is distinguishable from noise at one seed. The
+in-distribution table at the top of this README shows v1 beating the 8B by **37 points** and its
+own base by **26 points**; on a public benchmark the three models are indistinguishable.
 
-So: **the public benchmark confirms v1 is strong at abstention, but it does not independently
-confirm that v1's fine-tuning caused it.**
+The reason is that **BFCL's irrelevance set does not discriminate at this capability range.** An
+untrained 4B already scores 87.5%. Whatever those prompts measure, all three models solve them.
+The custom hard-negative suite is simply harder — which is an argument for keeping it, and no
+evidence that the fine-tune it credits is real.
+
+**So what is actually established:** v1 is a competent abstainer, roughly on par with a model
+twice its size. It is *not* established that the fine-tuning is responsible for that, and it is
+certainly not established that v1 is dramatically better than either baseline.
 
 Also measured, `Multiple (AST)`: v1 scores 37.00%.
 
@@ -272,11 +278,11 @@ Stated plainly, because these numbers are easy to over-read:
 1. **Primary eval is in-distribution.** `eval_toolcalls.py` builds its cases from the same source
    families used for training. Held-out, but not out-of-distribution. It measures *did the model
    learn this data*, not *can the model use tools in the wild*.
-2. **The public benchmark does not corroborate the main claim.** BFCL v4 Irrelevance gives v1
-   89.17% and its untrained base 87.50% — a 1.67-point gap (4 of 240 entries) that a single seed
-   cannot resolve. The public data therefore establishes that *both* models abstain well on
-   BFCL, not that the fine-tuning caused v1's abstention. The +26.4-point gap in the
-   in-distribution table is real as a measurement but has not been independently reproduced.
+2. **The public benchmark contradicts the main claim.** BFCL v4 Irrelevance, identical
+   conditions, full category: base 87.50%, Qwen3-8B 88.33%, v1 89.17%. The entire spread is
+   4 of 240 entries. The self-scored eval's +26.4-point gap over the base and +37-point gap
+   over the 8B do **not** replicate publicly. Treat the in-distribution numbers as measuring
+   fit to the evaluation's own difficulty, not as a capability claim.
 3. **Coverage is thin.** BFCL: 2 of 6 non-live categories, single seed, no live/multi-turn or
    agentic categories.
 4. **No terminal-agentic evaluation.** No Terminal-Bench or SWE-bench number exists for this
