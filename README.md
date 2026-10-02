@@ -34,6 +34,41 @@ The win is concentrated almost entirely in `abstain_hard`: hard negatives are pr
 *look* tool-shaped (a tool is defined, the request sounds actionable) but the correct answer is
 to decline. The base model calls the tool. v1 declines. The 8B reference also calls it.
 
+---
+
+## Independent benchmark: BFCL v4
+
+The table above is self-scored. This section is not.
+
+`bfcl-eval` 2026.3.23 — the official Berkeley Function Calling Leaderboard harness — was run
+against v1 in native function-calling mode. Ollama exposes an OpenAI-compatible endpoint, so the
+model is registered with `is_fc_model=True` and driven through the same code path a hosted
+frontier model takes (`scripts/bfcl_ollama.py`).
+
+| BFCL v4 category | Score | Entries |
+|---|---:|---:|
+| **Irrelevance Detection** | **90.00%** | 240 |
+| **Multiple (AST)** | **36.50%** | 200 |
+
+**Irrelevance Detection is the out-of-distribution test of v1's core claim.** BFCL's irrelevance
+set is prompts where no tool should be called, written by Berkeley and not derived from any of our
+training sources. v1 scores **90.00%** on it — consistent with the 90.7% hard-abstention figure
+above, but from an independent harness on unseen data.
+
+**Do not quote an overall BFCL number from this run.** Only 2 of the 6 non-live categories were
+executed. BFCL's scorer emits `Non-Live Overall Acc: 9.12%` for this partial run; that is an
+artifact of the four missing categories contributing zero, not a meaningful score.
+
+Coverage is partial, and there is **no baseline comparison on BFCL**. The 4B-base control was
+started and abandoned: the untrained base does not emit parseable tool calls, so it generates to
+the token cap on most entries (~7–9 s/entry vs 1.3 s for v1), failed to converge in roughly two
+hours, and pushed this 14 GB host into swap thrashing. The claim "4B base is much worse at
+abstention" therefore has **not** been independently confirmed.
+
+`Multiple (AST)` at 36.5% is a genuine weakness — composing several correct calls in one turn is
+where a 4B model falls over, and it is consistent with v4's finding that multi-call data helped
+slightly but not enough to matter.
+
 ## Why this is the metric that matters
 
 An agent that calls a tool when it shouldn't does something irreversible with the wrong
@@ -137,9 +172,31 @@ scripts/
   train_qlora.py, train_qlora_v2.py
   merge_export.py                  fp16 merge → GGUF (Q4_K_M/Q5_K_M/Q4_K_S)
   eval_toolcalls.py                the eval harness that produced eval/*.json
+  bfcl_ollama.py                   registers Ollama-served models with the BFCL harness
+  run_bfcl.py                      runs BFCL generate/evaluate against them
 eval/                              10 result JSONs, every run that was measured
 logs/                              training logs (not committed)
 ```
+
+### Running BFCL
+
+```bash
+uv pip install bfcl-eval soundfile
+# ollama serve must be running with the GGUF loaded
+python scripts/run_bfcl.py generate \
+    --model qwen3-4b-tools-v1 \
+    --test-category irrelevance,multiple \
+    --temperature 0
+python scripts/run_bfcl.py evaluate --model qwen3-4b-tools-v1 \
+    --test-category irrelevance,multiple
+```
+
+Scores land in `.venv/lib/python3.12/site-packages/score/`. Note that `evaluate` resolves
+`--result-dir` relative to BFCL's own package root, not your working directory.
+
+**Runtime warning:** run one model at a time and expect ~0.8 s/entry for a model that emits
+parseable tool calls. A model that does not will generate to the token cap instead (~7–9 s/entry)
+and can drive the host into swap.
 
 **What is deliberately not committed:** model weights, GGUF files, LoRA adapters, training data,
 and the `hf_cache` / `repos` checkouts. That's ~32 GB. Adapters belong on Hugging Face;
@@ -189,21 +246,25 @@ build (`2.14.0+cu130`) has no HIP support compiled in.
 
 Stated plainly, because these numbers are easy to over-read:
 
-1. **In-distribution only.** `eval_toolcalls.py` builds its cases from the same source families
-   used for training. Held-out, but not out-of-distribution. It measures *did the model learn
-   this data*, not *can the model use tools in the wild*.
-2. **No public benchmark.** No Terminal-Bench, SWE-bench, BFCL, or τ-bench number exists for
-   this model. On Terminal-Bench 2.0 a 4B model of this class would be expected near 0–2% —
-   untuned `Qwen3-8B` scores 2.47% on that benchmark, and the published work that moved 8B to
-   13.0% used a purpose-built terminal corpus. Function-calling ability and terminal-agentic
-   ability are different skills; this repo only addresses the first.
-3. **Self-reported eval harness.** The scorer in `eval_toolcalls.py` is mine, not a third-party
-   one. It was not adversarially tested for false positives.
-4. **Single seed, single run per configuration.** No variance estimate. The v1-vs-v4 gap
+1. **Primary eval is in-distribution.** `eval_toolcalls.py` builds its cases from the same source
+   families used for training. Held-out, but not out-of-distribution. It measures *did the model
+   learn this data*, not *can the model use tools in the wild*.
+2. **One public benchmark, two categories.** BFCL v4 Irrelevance (90.00%) and Multiple (36.50%)
+   were run on the official harness — see above. That is a genuine independent number, but it
+   covers 2 of 6 non-live categories, no live/multi-turn/agentic categories, and no baseline
+   comparison. Everything else in this README is self-scored.
+3. **No terminal-agentic evaluation.** No Terminal-Bench or SWE-bench number exists for this
+   model. On Terminal-Bench 2.0 a 4B model of this class would be expected near 0–2% — untuned
+   `Qwen3-8B` scores 2.47%, and the published work that moved 8B to 13.0% used a purpose-built
+   terminal corpus. Function-calling ability and terminal-agentic ability are different skills;
+   this repo only addresses the first.
+4. **Self-authored scorer.** The scorer in `eval_toolcalls.py` is mine, not third-party, and was
+   not adversarially tested for false positives.
+5. **Single seed, single run per configuration.** No variance estimate. The v1-vs-v4 gap
    (+17 points, 44 cases) is almost certainly real, but the ±2 point differences are not
    distinguishable from noise.
-5. **Loss curves were not tuned.** No LR sweep, no epoch sweep, no seed sweep.
-6. **Rejected model shipped.** v4 is included as evidence, not as a release.
+6. **Loss curves were not tuned.** No LR sweep, no epoch sweep, no seed sweep.
+7. **Rejected model shipped.** v4 is included as evidence, not as a release.
 
 ## License
 

@@ -39,3 +39,5 @@ env/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+# BFCL run artifacts (regenerable via scripts/run_bfcl.py)
+bfcl_run/
