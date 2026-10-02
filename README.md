@@ -6,8 +6,18 @@ The headline result: on a held-out abstention suite, this 4B model scores **90.7
 untouched Qwen3-8B scores **53.5%** — a 4B model beating a model twice its size by 37 points
 on the one behaviour that matters for not shipping a broken agent.
 
+Independently confirmed on **Berkeley Function Calling Leaderboard v4**: **90.00%** on
+Irrelevance Detection, from Berkeley-written prompts that share no provenance with the
+training data.
+
+| | |
+|---|---|
+| 🔬 **Adapter (HF)** | [`AbhijitK20/qwen3-4b-tools-v1`](https://huggingface.co/AbhijitK20/qwen3-4b-tools-v1) |
+| 💻 **Code + full write-up** | [`github.com/AbhijitK20/qwen3-4b-tools-v1`](https://github.com/AbhijitK20/qwen3-4b-tools-v1) |
+
 > **Read the [Limitations](#limitations) section before you trust any number here.**
-> These are in-distribution results. No public benchmark has been run.
+> The primary eval is in-distribution and self-scored; only one public benchmark was run,
+> and only two of its categories.
 
 ---
 
