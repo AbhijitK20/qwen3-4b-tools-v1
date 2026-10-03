@@ -21,7 +21,9 @@ real as a *measurement* but does not replicate publicly. See
 > **Read the [Limitations](#limitations) section before you trust any number here.**
 > The primary eval is in-distribution and self-scored. On the one public benchmark that was run,
 > all three models — including the untrained baselines — land within noise of each other. The
-> large margin in the primary eval does not replicate.
+> large margin in the primary eval does not replicate. A second seed scored *better* on that
+> benchmark by refusing to call tools at all, so the headline abstention number is paired with a
+> call-rate metric that catches it.
 
 ---
 
@@ -78,11 +80,41 @@ untrained 4B already scores 87.5%. Whatever those prompts measure, all three mod
 The custom hard-negative suite is simply harder — which is an argument for keeping it, and no
 evidence that the fine-tune it credits is real.
 
-**So what is actually established:** v1 is a competent abstainer, roughly on par with a model
-twice its size. It is *not* established that the fine-tuning is responsible for that, and it is
-certainly not established that v1 is dramatically better than either baseline.
+**So what is actually established:** v1 abstains at least as well as an 8B and still calls tools
+on 97.5% of tool-requiring entries. It is *not* established that the fine-tuning caused that — the
+untrained 4B is indistinguishable from it on irrelevance.
 
 Also measured, `Multiple (AST)`: v1 scores 37.00%.
+
+### The metric is gameable, and a seed replicate proved it
+
+A second training run — the **same recipe, only `--seed 1337`** — scored **97.50%** on irrelevance.
+That is 20 entries better than v1, and would have made a genuinely impressive headline: a 4B
+beating an 8B by nine points.
+
+It is meaningless. On BFCL Multiple (AST), which *requires* emitting tool calls, seed-1337 scored
+**12.50%** and emitted a tool call on only **65 of 200** entries. v1 called on **195 of 200**.
+seed-1337 had collapsed into refusing to act.
+
+| Model | Irrelevance | Multiple call rate | Multiple AST | Balanced |
+|---|---:|---:|---:|---:|
+| **v1 (shipped)** | 89.17% | **97.5%** | 37.00% | **93.15** |
+| seed 1337 | **97.50%** | 32.5% | 12.50% | 48.75 ⚠️ degenerate |
+| Qwen3-8B | 88.33% | not measured | — | — |
+| 4B base | 87.50% | not measured | — | — |
+
+"Balanced" is `scripts/balanced_score.py` — the harmonic mean of irrelevance accuracy and Multiple
+call rate. Harmonic rather than arithmetic, so collapsing on *either* side collapses the score: a
+model cannot buy abstention points by giving up the ability to act. A call rate below 50% is
+flagged `DEGENERATE`.
+
+**The shipped model is the balanced one.** seed-1337 is not a better abstainer; it is a model that
+declines most tool-requiring requests while sounding confident — *"Yes, you can find the
+dimensions... Let me calculate it for you"* — and then calculates nothing.
+
+This also means **seed variance on irrelevance is very large** (~8.3 points between two runs of the
+same recipe), so the single-seed comparisons earlier in this section should be read as one sample
+each, not stable values.
 
 ### Notes on method
 
@@ -290,14 +322,24 @@ Stated plainly, because these numbers are easy to over-read:
    `Qwen3-8B` scores 2.47%, and the published work that moved 8B to 13.0% used a purpose-built
    terminal corpus. Function-calling ability and terminal-agentic ability are different skills;
    this repo only addresses the first.
-5. **Multiple-call composition is weak.** ~37% on BFCL Multiple (AST). Composing several
-   correct calls in one turn is where this model class falls over.
-6. **Self-authored scorer.** The scorer in `eval_toolcalls.py` is mine, not third-party, and was
+5. **Multiple-call composition is weak.** 37.00% AST on BFCL Multiple, though the model does
+   emit a tool call on 97.5% of those entries — it calls often and is often wrong, rather than
+   declining.
+6. **Seed variance is very large and only partly sampled.** Two runs of the identical recipe
+   scored 89.17% and 97.50% on irrelevance. The 8.3-point spread means every single-seed number in
+   this repo should be read as one sample. `Multiple` was measured on both; `Irrelevance`
+   baselines are n=1 each.
+7. **Abstention metrics are gameable and one of ours nearly was.** seed-1337 reached 97.50% on
+   irrelevance by refusing to call tools. Always pair a refusal metric with one that requires
+   acting — `scripts/balanced_score.py` exists for that reason and is the number to read first.
+8. **Self-authored scorer.** The scorer in `eval_toolcalls.py` is mine, not third-party, and was
    not adversarially tested for false positives. Given finding (2), a reviewer should weight it
    accordingly.
-7. **Single seed, single run per configuration.** No variance estimate anywhere in this repo.
-8. **No hyperparameter search.** No LR, epoch, or seed sweep was performed.
-9. **Rejected model shipped.** v4 is included as evidence, not as a release.
+9. **Single seed per configuration for the primary eval.** No variance estimate on the
+   in-distribution suite.
+10. **No hyperparameter search.** No LR, epoch, or seed sweep was performed.
+11. **Rejected models shipped.** v4 (mixture regression) and seed-1337 (refusal collapse) are
+    included as evidence, not as releases.
 
 ## License
 

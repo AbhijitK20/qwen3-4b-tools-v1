@@ -1,0 +1,45 @@
+{
+  "benchmark": "BFCL v4 (non-live subset)",
+  "metric": "harmonic_mean(irrelevance_accuracy, multiple_call_rate)",
+  "rationale": "Irrelevance rewards declining to call a tool and is maximised by an always-refuse model. Pairing it with Multiple (AST), which requires calling, makes an always-decline model score ~22 instead of looking like a 97.5% model.",
+  "degenerate_call_rate_threshold": 50.0,
+  "rows": [
+    {
+      "model": "Qwen3-4B-Tools-v1 (ours)",
+      "result_dir": "qwen3-4b-tools-v1",
+      "irrelevance": 89.17,
+      "multiple_ast": 37.0,
+      "multiple_call_rate": 97.5,
+      "combined_harmonic": 93.15,
+      "degenerate": false
+    },
+    {
+      "model": "seed1337",
+      "result_dir": "qwen3-4b-s1337",
+      "irrelevance": 97.5,
+      "multiple_ast": 12.5,
+      "multiple_call_rate": 32.5,
+      "combined_harmonic": 48.75,
+      "degenerate": true
+    },
+    {
+      "model": "Qwen3-8B (reference)",
+      "result_dir": null,
+      "irrelevance": 88.33,
+      "multiple_ast": null,
+      "multiple_call_rate": null,
+      "combined_harmonic": null,
+      "degenerate": false
+    },
+    {
+      "model": "Qwen3-4B-Base (untrained)",
+      "result_dir": null,
+      "irrelevance": 87.5,
+      "multiple_ast": null,
+      "multiple_call_rate": null,
+      "combined_harmonic": null,
+      "degenerate": false
+    }
+  ],
+  "caveat": "Non-Live Overall Acc is intentionally not used: only some categories were run, so unscored categories contribute zero and make that column meaningless."
+}

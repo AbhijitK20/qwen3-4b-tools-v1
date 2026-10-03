@@ -30,14 +30,27 @@ fi
 ls -la "output/${TAG}.gguf" | awk '{printf "    %s %.2f GB\n",$9,$5/1073741824}'
 
 echo "=== [2/4] register with ollama ==="
+# merge_export.py names the quantised file "<merged-dir>-<quant>.gguf", so resolve the
+# actual path rather than assuming output/${TAG}.gguf.
+GGUF=$(ls -1t output/"${SLUG}"*.gguf output/merged-"${SLUG}"*.gguf 2>/dev/null | head -1)
+if [ -z "$GGUF" ]; then
+  echo "!! no GGUF produced for $SLUG - check the merge step above" >&2; exit 3
+fi
+GGUF_ABS="$(cd "$(dirname "$GGUF")" && pwd)/$(basename "$GGUF")"
+ls -la "$GGUF" | awk '{printf "    gguf %s %.2f GB\n",$9,$5/1073741824}'
+
+# Ollama >=1.x rejects `PARAMETER stop` ("command must be one of from, license, template,
+# system, adapter, draft, renderer, parser, parameter, message, requires"). Stop sequences
+# now go under PARAMETER stop... it must be omitted entirely. num_ctx is a real PARAMETER.
 cat > "output/Modelfile_${SLUG}" <<EOF
-FROM $(pwd)/output/${TAG}.gguf
+FROM ${GGUF_ABS}
 PARAMETER num_ctx 4096
 PARAMETER temperature 0.6
-PARAMETER stop ""
 EOF
 ollama rm "$TAG" >/dev/null 2>&1 || true
-ollama create "$TAG" -f "output/Modelfile_${SLUG}" >/dev/null
+if ! ollama create "$TAG" -f "output/Modelfile_${SLUG}" 2>&1 | tail -3; then
+  echo "!! ollama create failed" >&2; exit 4
+fi
 echo "    ollama: $TAG"
 
 echo "=== [3/4] generate (BFCL irrelevance, 240 entries) ==="

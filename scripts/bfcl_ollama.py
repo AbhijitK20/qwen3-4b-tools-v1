@@ -90,6 +90,24 @@ LOCAL_MODELS = {
     ),
 }
 
+# Additional Ollama tags discovered at runtime and registered on demand, so a freshly
+# merged seed adapter can be scored without editing this file. Key = registry name.
+EXTRA_MODELS: dict[str, tuple[str, str, str]] = {}
+
+
+def register_extra(ollama_tag: str, registry_key: str, display: str, note: str = "") -> None:
+    """Register one more Ollama-served model under `registry_key`."""
+    EXTRA_MODELS[registry_key] = (ollama_tag, display, note)
+    register_models()
+
+
+def iter_all_models() -> dict:
+    """Every model BFCL should know about: the fixed set plus any runtime extras."""
+    models = dict(LOCAL_MODELS)
+    for key, (tag, display, note) in EXTRA_MODELS.items():
+        models[tag] = (display, key, note)
+    return models
+
 
 def register_models(
     base_url: Optional[str] = None,
@@ -106,7 +124,21 @@ def register_models(
     url = base_url or OLLAMA_BASE_URL
     handler = handler or CappedOpenAICompletionsHandler
 
-    for ollama_tag, (display, key, note) in LOCAL_MODELS.items():
+    # Extra seeds: BFCL_EXTRA_MODELS="registry_key=ollama_tag[|display],..."
+    # Needed because BFCL validates a model name against the registry *before* it creates
+    # any result directory, so a freshly merged seed cannot be auto-discovered from disk.
+    for spec in filter(None, os.getenv("BFCL_EXTRA_MODELS", "").split(",")):
+        spec = spec.strip()
+        if not spec:
+            continue
+        parts = spec.split("=")
+        key = parts[0].strip()
+        rest = parts[1].split("|") if len(parts) > 1 else []
+        tag = rest[0].strip() if rest else key
+        display = rest[1].strip() if len(rest) > 1 else key.replace("_", "-")
+        EXTRA_MODELS.setdefault(key, (tag, display, "registered via BFCL_EXTRA_MODELS"))
+
+    for ollama_tag, (display, key, note) in iter_all_models().items():
         MODEL_CONFIG_MAPPING[key] = ModelConfig(
             model_name=ollama_tag,  # what we send in the `model` field
             display_name=display,
@@ -125,7 +157,7 @@ def register_models(
 if __name__ == "__main__":
     register_models()
     for k, v in MODEL_CONFIG_MAPPING.items():
-        if k in {m[1] for m in LOCAL_MODELS.values()}:
+        if k in {m[1] for m in iter_all_models().values()}:
             print(
                 f"{k:22s} -> {v.display_name}  "
                 f"(fc={v.is_fc_model}, handler={v.model_handler.__name__}, "

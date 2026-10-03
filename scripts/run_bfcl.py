@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from bfcl_eval.__main__ import cli  # noqa: E402
-from bfcl_ollama import register_models  # noqa: E402
+from bfcl_ollama import iter_all_models, register_models  # noqa: E402
 
 
 def main() -> None:
@@ -38,12 +38,21 @@ def main() -> None:
 
     register_models()
 
+    # Extra seeds (e.g. freshly merged replicates) are registered via BFCL_EXTRA_MODELS,
+    # e.g. BFCL_EXTRA_MODELS="qwen3_4b_s1337=qwen3-4b-s1337|Qwen3-4B seed 1337".
+    # Disk auto-discovery cannot work: BFCL validates the model name before it creates
+    # any result directory.
+
     # Let BFCL's own CLI parse everything after the subcommand.
     if sys.argv[1] not in {"generate", "evaluate", "scores", "models"}:
         print(f"unknown subcommand: {sys.argv[1]}")
         raise SystemExit(2)
 
     cli()
+
+
+def _known_keys() -> set:
+    return {v[1] for v in iter_all_models().values()}
 
 
 if __name__ == "__main__":
