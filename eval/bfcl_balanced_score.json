@@ -14,6 +14,24 @@
       "degenerate": false
     },
     {
+      "model": "Qwen3-4B-Base (untrained)",
+      "result_dir": "qwen3-4b-base",
+      "irrelevance": 87.5,
+      "multiple_ast": 33.5,
+      "multiple_call_rate": 93.5,
+      "combined_harmonic": 90.4,
+      "degenerate": false
+    },
+    {
+      "model": "Qwen3-8B (reference)",
+      "result_dir": "qwen3-8b-ref",
+      "irrelevance": 88.33,
+      "multiple_ast": 34.5,
+      "multiple_call_rate": 91.0,
+      "combined_harmonic": 89.65,
+      "degenerate": false
+    },
+    {
       "model": "seed1337",
       "result_dir": "qwen3-4b-s1337",
       "irrelevance": 97.5,
@@ -21,24 +39,6 @@
       "multiple_call_rate": 32.5,
       "combined_harmonic": 48.75,
       "degenerate": true
-    },
-    {
-      "model": "Qwen3-8B (reference)",
-      "result_dir": null,
-      "irrelevance": 88.33,
-      "multiple_ast": null,
-      "multiple_call_rate": null,
-      "combined_harmonic": null,
-      "degenerate": false
-    },
-    {
-      "model": "Qwen3-4B-Base (untrained)",
-      "result_dir": null,
-      "irrelevance": 87.5,
-      "multiple_ast": null,
-      "multiple_call_rate": null,
-      "combined_harmonic": null,
-      "degenerate": false
     }
   ],
   "caveat": "Non-Live Overall Acc is intentionally not used: only some categories were run, so unscored categories contribute zero and make that column meaningless."

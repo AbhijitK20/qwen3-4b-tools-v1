@@ -100,8 +100,8 @@ seed-1337 had collapsed into refusing to act.
 |---|---:|---:|---:|---:|
 | **v1 (shipped)** | 89.17% | **97.5%** | 37.00% | **93.15** |
 | seed 1337 | **97.50%** | 32.5% | 12.50% | 48.75 ⚠️ degenerate |
-| Qwen3-8B | 88.33% | not measured | — | — |
-| 4B base | 87.50% | not measured | — | — |
+| Qwen3-8B | 88.33% | 91.0% | 34.50% | 89.65 |
+| 4B base | 87.50% | 93.5% | 33.50% | 90.42 |
 
 "Balanced" is `scripts/balanced_score.py` — the harmonic mean of irrelevance accuracy and Multiple
 call rate. Harmonic rather than arithmetic, so collapsing on *either* side collapses the score: a
