@@ -161,6 +161,62 @@ not v1 — the name predates the decision to ablate the degenerate seed. Renamin
 2.5 GB of paths for no analytical gain.) If you want to fix this, retrain the seed with a lower
 refusal weight in the mixture and re-measure — not a weight edit.
 
+### A second, much more careful attempt also failed
+
+The first attempt (above) fit its direction from 5 questions using a synthetic `Question:/Answer:`
+prompt. That is a weak fit, so it does not establish that the method cannot work. `scripts/uncensor.py`
+does it properly: 42 paired prompts (harmful request vs a benign near-twin, so the difference
+encodes *refusal* rather than *topic*), read through the real chat template, PCA over the
+per-pair differences, projection scaled by a strength parameter. `scripts/sweep_uncensor.py` sweeps
+rank and strength against a cheap single-forward-pass proxy.
+
+Three things had to be fixed to get trustworthy numbers at all, each of which had silently
+produced garbage first:
+
+- **Qwen3 is a hybrid reasoning model and emits `<think>` with logprob −0.001.** Any refusal
+  metric read at the first generated token is pure noise unless thinking is disabled
+  (`enable_thinking=False`). Every opener logprob sat at −20…−31 until this was fixed.
+- **The direction must be fitted where the decision is made**, at the last prompt position, not
+  at the last token of a pre-written refusal string. Fitting at the completion token captures a
+  *style* difference ("apology phrasing" vs "helpful phrasing"), which is a different axis.
+- **`down_proj` is stored `(hidden, intermediate)` = `(2560, 9728)`**, so the residual stream is
+  the *row* axis. The projection must be `W - P(PᵀW)`; `W - (WP)Pᵀ` projects the input axis
+  instead and does not even typecheck.
+
+Even then the result is negative. Sweep frontier (`logs/sweep_decision.log`), refusal gap measured
+as `logprob(refusal opener) − logprob(compliance opener)`, baseline **+7.52**:
+
+| rank k | strength | Δ refusal gap | Δ benign logprob | generation |
+|---:|---:|---:|---:|---|
+| 4 | 1.00 | −2.63 | **+0.84** | coherent |
+| 8 | 1.00 | −1.86 | +0.80 | coherent |
+| 16 | 1.00 | −1.48 | +0.74 | coherent |
+| 16 | 1.25 | −4.47 | −1.29 | **degenerates** |
+| 32 | 1.25 | −6.51 | −9.89 | **degenerates** |
+| 32 | 1.50 | −7.95 | −7.75 | **degenerates** |
+
+Only the first three settings leave a coherent model, and none of them removes refusal — verified
+by generation, not by the proxy:
+
+| Build | Coherent? | Refused (n=20) |
+|---|---|---:|
+| parent seed1337 | yes | 20/20 |
+| k=4, s=1.00 | yes | **19/20** |
+| k=16, s=1.25 | no — `1. I. I, and, and, and…` | 3/20 (degenerate output) |
+
+There is **no setting between "does nothing" and "model is destroyed."** Past about k=8 the
+subspace stops being separable from general competence: removing it takes the refusal with it and
+leaves repetition loops. Worth noting the proxy hid this — it only reads the first generated token,
+so it rated the k=16 build as merely −1.29 capability loss when generation was already garbage.
+Capable-but-refusing is the correct behaviour for a model shipping to anyone; the attempt that
+removed refusals produced a model that cannot write a sentence.
+
+The one lever not pulled is prompt count: 42 pairs caps the subspace rank at 42, so k≥32 is
+removing most of the variance in the difference set rather than a refusal-specific component.
+Scaling to several hundred pairs is the obvious next experiment and is untested here.
+
+**Not released.** No uncensored artifact ships from this repo.
+
 ### Notes on method
 
 - Generation is capped at 512 tokens (`CappedOpenAICompletionsHandler`). An uncapped run was
