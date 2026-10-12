@@ -136,6 +136,7 @@ RESULT_DIR_ALIASES = {
     "qwen3-4b-base (untrained)": "qwen3-4b-base",
     "qwen3-8b (reference)": "qwen3-8b-ref",
     "seed1337": "qwen3-4b-s1337",
+    "seed1337 abliterated": "qwen3-4b-abliterated",
 }
 
 

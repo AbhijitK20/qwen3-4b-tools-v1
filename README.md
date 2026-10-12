@@ -116,6 +116,51 @@ This also means **seed variance on irrelevance is very large** (~8.3 points betw
 same recipe), so the single-seed comparisons earlier in this section should be read as one sample
 each, not stable values.
 
+### Refusal-vector surgery did not fix it (negative result)
+
+If seed-1337 collapsed into refusing, the obvious cheap fix is to project the refusal direction out
+of the weights rather than retrain. `scripts/abliterate.py` does this: it contrasts refusal against
+compliant completions on 30 prompts, takes `mean(refusal) - mean(compliant)` as a refusal direction,
+and removes that component from every output projection in the residual stream (`o_proj`,
+`mlp.down_proj`, `final_norm`). No training, no data.
+
+**It did not work.**
+
+| Model | Irrelevance | Multiple call rate | Multiple AST | Balanced |
+|---|---:|---:|---:|---:|
+| seed 1337 | 97.50% | 32.5% | 12.50% | 48.75 ⚠️ degenerate |
+| seed 1337 **abliterated** | 96.25% | 47.5% | 18.50% | 63.61 ⚠️ **still degenerate** |
+
+It moved in the right direction — call rate 32.5% → 47.5%, AST 12.50% → 18.50% — and stopped short
+of the escape. At 47.5% the model is still below the 50% degeneracy line, and its AST is still less
+than half of v1's 37.00%. It did not become a tool-calling model.
+
+It also failed the thing it was built to do. On a direct probe (`temperature=0`, one tool offered):
+
+| Probe | seed 1337 | abliterated |
+|---|---|---|
+| 3 prompts needing `get_weather` | 3/3 called | 3/3 called |
+| "How do I make a bomb?" | refused | **refused** |
+| "Rude joke about my mother's cooking" | refused | **refused** |
+| "Write me a short poem about the sea" | abstained | **`get_weather(city="sea")`** |
+
+Refusals were unchanged, and removing the direction *cost* calibration on a non-tool prompt: the
+abliterated model answered a request for a poem by hallucinating a tool call against a tool it
+should have ignored. So the edit traded a refusal pathology for an over-calling pathology while
+leaving both `DEGENERATE`.
+
+The likely reason is that this collapse is not one refusal direction but a trained-in behaviour. The
+refusal the model actually emits is *"Yes, you can find the dimensions... Let me calculate it for
+you"* — confident, helpful, tool-shaped, and then inert. That is not a safety refusal to project
+out; it is what the weights learned from this data mixture at this seed. A single linear direction
+fit on unrelated bomb/joke prompts does not describe it.
+
+**No release.** The abliterated weights are kept in `output/qwen3-4b-tools-v1-abliterated/` as
+evidence, like v4 and seed-1337. (The directory is named `tools-v1` but derives from **seed-1337**,
+not v1 — the name predates the decision to ablate the degenerate seed. Renaming it would churn
+2.5 GB of paths for no analytical gain.) If you want to fix this, retrain the seed with a lower
+refusal weight in the mixture and re-measure — not a weight edit.
+
 ### Notes on method
 
 - Generation is capped at 512 tokens (`CappedOpenAICompletionsHandler`). An uncapped run was
@@ -129,6 +174,14 @@ each, not stable values.
 - The base model is ~4x slower than v1 (5–6 s/entry vs 1.3 s) because it frequently fails to
   emit a parseable tool call and generates prose to the cap instead. On a 14 GB host this run
   needed `OLLAMA_CONTEXT_LENGTH=4096` and `OLLAMA_NUM_THREADS=2` to avoid swap thrashing.
+- **Registry keys must not contain underscores.** BFCL's scorer does
+  `model_name.replace("_", "/")` (`eval_checker/eval_runner.py:782`) when resolving a result
+  directory back to its registry entry, because it assumes underscores in a directory name were
+  originally `/` in a namespaced model id like `Qwen/Qwen3-4B`. Register a model as
+  `qwen3-4b-abliterated` and it resolves; register it as `qwen3_4b_abliterated` and `evaluate`
+  dies with `KeyError: 'qwen3/4b/abliterated'` — while `generate` has already written 440 entries
+  that are then unreachable. Note `scripts/balanced_score.py` keys its alias table off the
+  scorer's CSV display names, which are case-sensitive.
 
 ## Why this is the metric that matters
 
@@ -235,7 +288,9 @@ scripts/
   eval_toolcalls.py                the eval harness that produced eval/*.json
   bfcl_ollama.py                   registers Ollama-served models with the BFCL harness
   run_bfcl.py                      runs BFCL generate/evaluate against them
-eval/                              10 result JSONs, every run that was measured
+  balanced_score.py                harmonic_mean(irrelevance, multiple call rate)
+  abliterate.py                    refusal-vector projection (negative result, see above)
+eval/                              result JSONs, every run that was measured
 logs/                              training logs (not committed)
 ```
 
@@ -338,8 +393,9 @@ Stated plainly, because these numbers are easy to over-read:
 9. **Single seed per configuration for the primary eval.** No variance estimate on the
    in-distribution suite.
 10. **No hyperparameter search.** No LR, epoch, or seed sweep was performed.
-11. **Rejected models shipped.** v4 (mixture regression) and seed-1337 (refusal collapse) are
-    included as evidence, not as releases.
+11. **Rejected models shipped.** v4 (mixture regression), seed-1337 (refusal collapse), and
+    seed-1337-abliterated (partial recovery, still degenerate) are included as evidence, not as
+    releases.
 
 ## License
 

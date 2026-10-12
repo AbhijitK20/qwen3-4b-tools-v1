@@ -32,6 +32,15 @@
       "degenerate": false
     },
     {
+      "model": "seed1337 abliterated",
+      "result_dir": "qwen3-4b-abliterated",
+      "irrelevance": 96.25,
+      "multiple_ast": 18.5,
+      "multiple_call_rate": 47.5,
+      "combined_harmonic": 63.61,
+      "degenerate": true
+    },
+    {
       "model": "seed1337",
       "result_dir": "qwen3-4b-s1337",
       "irrelevance": 97.5,
