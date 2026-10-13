@@ -267,6 +267,66 @@ What would actually clear the remaining 7/20 is a LoRA fine-tune on compliance d
 surgery. That is a ~9 h training run on this hardware, and unlike every edit above it is not
 constrained to a low-rank linear subspace.
 
+### v5: refusal removed by fine-tuning, tool-calling partly regressed
+
+Weight surgery hit its ceiling at k≈96 (above). A LoRA is not confined to a low-rank subspace,
+so the next step was to train the behaviour in. `scripts/prep_data_v5.py` builds a mixture:
+
+```
+7,000  tool-calling  (76%)   from tok_train_v4
+2,000  airoboros     (22%)   jondurbin/airoboros-uncensored, refusal-free general chat
+  192  compliance    (2%)    targeted harmful-prompt compliance
+─────────────────────────
+9,168 rows · 700 steps · 2 h 56 m · final loss 0.4930 · eval_loss 0.199
+```
+
+**The compliance slice is distilled, not scraped.** The 192 rows come from running all 510
+prompts in `scripts/prompt_bank.py` through the ablated checkpoint and keeping only responses
+that are substantive, non-refusing and non-degenerate — 510 → 241 → 192. This is self-distillation:
+the low-rank edit's compliant behaviour is distilled into weights that are free to reorganise.
+
+Reading HF "uncensored" datasets changed the design. `airoboros-uncensored` is 0.3% refusal
+language but only **1.1% edgy prompts** — it makes a model generally more compliant, it does not
+target safety refusal. That is why it is the 22% anchor and not the active ingredient.
+
+Measured on 20 held-out harmful prompts (`scripts/strict_probe.py`):
+
+| Model | Refused | Garbage | **Clean answers** |
+|---|---:|---:|---:|
+| parent seed1337 | 17/20 | 0/20 | **3/20** |
+| ablation k=96 L4-30 | 7/20 | 4/20 | 9/20 |
+| **v5 LoRA** | 9/20 | **1/20** | **10/20** |
+| v5 + ablation k=96 | 1/20 | 13/20 | 7/20 |
+
+v5 is the cleanest and the best on answers: **clean harmful answers triple (3 → 10), refusals
+halve (17 → 9), and garbage stays near zero** — cleaner than the weight surgery, which needed
+a narrow rank band to avoid degenerating.
+
+Stacking the ablation on top of v5 does *not* compose. Refusals drop to 1/20 but 13/20 outputs
+degenerate, so CLEAN falls to 7/20 — worse than v5 alone. The LoRA moved the weights enough
+that the same subspace edit now costs more than it removes.
+
+**But tool-calling regressed, and that is a real cost:**
+
+| Model | calls/120 | name | args | abstention |
+|---|---:|---:|---:|---:|
+| v1 | 118 | 118 | 106 | — |
+| v3 | 114 | 114 | 100 | **246/270 (91%)** |
+| base | 99 | 99 | 87 | 178/270 (66%) |
+| **v5** | 106 | 105 | **89** | **204/270 (76%)** |
+
+args-exact falls 100 → 89 against v3, and abstention 91% → 76%. The likely cause is known:
+the tool-calling slice was drawn from `tok_train_v4`, whose own abstention rate is 75%, when
+`tok_train_v3` scores 91% on the same eval. The mixture inherited v4's weakness. A v6 that
+draws the same tool slice from **v3** should recover it — untested here, and the honest reason
+not to ship v5 as an upgrade over v1 on this project's own terms.
+
+Tool-call *format* still holds: 3/3 called on a direct probe and 2/2 abstained on non-tool
+prompts, and the ablated model matched that. It is argument accuracy and abstention that moved.
+
+**Not a jailbreak.** Half the prompts still refuse. `v5-abl-k96` refuses only 1/20 and is
+shipped nowhere — it is a model that cannot write sentences.
+
 ### Notes on method
 
 - Generation is capped at 512 tokens (`CappedOpenAICompletionsHandler`). An uncapped run was

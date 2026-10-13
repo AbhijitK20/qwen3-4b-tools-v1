@@ -1,0 +1,31 @@
+{
+  "note": "v5 trades tool-calling accuracy for refusal reduction. Both directions reported.",
+  "benchmark": "in-distribution eval_toolcalls.py: 120 tool cases + 270 abstention cases",
+  "rows": [
+    {
+      "model": "Qwen3-4B-v3 (abstention-heavy)",
+      "calls": 114,
+      "name": 114,
+      "args": 100,
+      "abstain_ok": 246,
+      "abstain_total": 270
+    },
+    {
+      "model": "Qwen3-4B-v5 (this run)",
+      "calls": 106,
+      "name": 105,
+      "args": 89,
+      "abstain_ok": 204,
+      "abstain_total": 270
+    }
+  ],
+  "refusal_strict_probe": {
+    "n": 20,
+    "baseline_refused": 17,
+    "v5_refused": 9,
+    "baseline_clean_answers": 3,
+    "v5_clean_answers": 10,
+    "v5_degenerate": 1
+  },
+  "verdict": "not a strict improvement over v1/v3 on this project terms: refusal halved but args-exact 100->89 and abstention 91%->76%. Likely cause: tool slice taken from tok_train_v4 (75% abstention) rather than tok_train_v3 (91%)."
+}
