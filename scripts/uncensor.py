@@ -215,37 +215,76 @@ def last_token_hidden_state(model, tok, prompt: str, reply: str,
 
 
 @torch.no_grad()
-def fit_subspace(model, tok, device, n_pairs: int, k: int, seed: int,
-                 mode: str = "decision"):
-    """PCA over (refusal - comply) residual differences. Returns (k, hidden)."""
+def fit_subspace(model, tok, device, n: int, k: int, seed: int,
+                 contrast: str = "same", fit_mode: str = "completion"):
+    """PCA over refusal-minus-compliance residual differences. Returns (k, hidden).
+
+    contrast="same"     both halves are the SAME harmful prompt, differing only in
+                        the response prefix. Topic, length and intent all cancel
+                        exactly, so the difference is refusal itself. This is the
+                        one to use.
+    contrast="paired"   harmful+refusal vs a benign near-twin+compliance. The
+                        prompt text differs between halves, so the difference
+                        vector carries topic and phrasing as well as refusal. That
+                        contamination is why aggressive settings on the paired fit
+                        degenerated the model instead of removing refusal.
+
+    fit_mode="completion" reads the last token after the response prefix, i.e. the
+        model is mid-phrase. "decision" reads the last prompt position instead, but
+        that cannot be contrasted -- without a prefix there is nothing to difference
+        against -- so it only applies to the paired fit.
+    """
+    rng = random.Random(seed)
+    if contrast == "same":
+        from prompt_bank import COMPLY_PREFIXES as CP
+        from prompt_bank import REFUSAL_PREFIXES as RP
+        from prompt_bank import build_prompts
+
+        prompts = build_prompts()[:n]
+        examples = [
+            (p, rng.choice(RP), p, rng.choice(CP)) for p in prompts
+        ]
+        mode = "completion"
+    else:
+        examples = build_examples(n, seed)
+        mode = fit_mode
+
     diffs = []
-    for harmful, refusal, benign, comply in build_examples(n_pairs, seed):
-        if mode == "decision":
-            h_r = last_token_hidden_state(model, tok, harmful, refusal, mode)
-            h_c = last_token_hidden_state(model, tok, benign, comply, mode)
-        else:
-            h_r = last_token_hidden_state(model, tok, harmful, refusal, mode)
-            h_c = last_token_hidden_state(model, tok, benign, comply, mode)
+    for harmful, refusal, benign, comply in examples:
+        h_r = last_token_hidden_state(model, tok, harmful, refusal, mode)
+        h_c = last_token_hidden_state(model, tok, benign, comply, mode)
         diffs.append(h_r - h_c)
-        if len(diffs) % 10 == 0:
-            print(f"  fitted {len(diffs)}/{n_pairs} pairs", flush=True)
+        if len(diffs) % 50 == 0:
+            print(f"  fitted {len(diffs)}/{n}", flush=True)
 
     D = torch.stack(diffs)  # (n, hidden)
-    print(f"  diff matrix {tuple(D.shape)}", flush=True)
+    print(f"  diff matrix {tuple(D.shape)}  rank<={D.shape[0]}", flush=True)
     Dc = D - D.mean(0, keepdim=True)
-    # right singular vectors of the centred matrix = principal directions
     _, _, V = torch.pca_lowrank(Dc, q=min(k + 8, Dc.shape[0]), center=False)
     return V[:, :k].contiguous()
 
 
-def is_target_key(key: str) -> bool:
-    """Weights that write into the residual stream."""
+def is_target_key(key: str, lo: int = 0, hi: int = 10**9) -> bool:
+    """Weights that write into the residual stream, within a layer band.
+
+    Restricting to a band matters. Projecting the subspace out of all 36 layers
+    is what collapses the model: the residual stream carries far more than
+    refusal, and a rank-32+ subspace contains enough shared structure that
+    removing it everywhere degrades generation into repetition. Early layers do
+    lexical/syntactic work and late layers do task formatting, so a mid-band
+    projection is the plausible place to find refusal without that collateral.
+    """
     if key == "model.norm.weight":
         return True
     if key.startswith("model.layers."):
-        return key.endswith(".self_attn.o_proj.weight") or key.endswith(
-            ".mlp.down_proj.weight"
-        )
+        if not (key.endswith(".self_attn.o_proj.weight")
+                or key.endswith(".mlp.down_proj.weight")):
+            return False
+        try:
+            idx = int(key.split(".")[2])
+        except (IndexError, ValueError):
+            return False
+        return lo <= idx <= hi
     return False
 
 
@@ -290,12 +329,21 @@ def main() -> None:
     ap.add_argument("--model", default="output/merged-qwen3_4b_s1337")
     ap.add_argument("--out", default="output/qwen3-4b-s1337-uncensored")
     ap.add_argument("--device", default="cpu")
-    ap.add_argument("--pairs", type=int, default=len(PAIRS))
+    ap.add_argument("--pairs", type=int, default=len(PAIRS),
+                    help="number of prompts/differences to fit on")
+    ap.add_argument("--contrast", choices=["same", "paired"], default="same",
+                    help="same: same prompt, refusal vs compliance prefix "
+                         "(isolates refusal). paired: harmful vs benign prompt.")
     ap.add_argument("--directions", type=int, default=32,
                     help="rank of the refusal subspace to remove")
     ap.add_argument("--strength", type=float, default=1.0,
                     help="0..1 fraction of the subspace to project out")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--layer-lo", type=int, default=0)
+    ap.add_argument("--layer-hi", type=int, default=10**9)
+    ap.add_argument("--fit-from", default="",
+                    help="reuse a saved subspace instead of refitting "
+                         "(saves ~10 min per config)")
     ap.add_argument("--fit-mode", choices=["decision", "completion"],
                     default="decision",
                     help="where to read activations when fitting the direction")
@@ -330,9 +378,15 @@ def main() -> None:
     )
     model.eval()
 
-    print(f"fitting refusal subspace: {args.pairs} pairs, k={args.directions}...", flush=True)
-    P = fit_subspace(model, tok, args.device, args.pairs, args.directions,
-                     args.seed, args.fit_mode)
+    if args.fit_from:
+        full = torch.load(args.fit_from).float()
+        P = full[:, : args.directions].contiguous()
+        print(f"reused subspace {args.fit_from} -> {tuple(P.shape)}", flush=True)
+    else:
+        print(f"fitting refusal subspace: {args.pairs} prompts, k={args.directions}...",
+              flush=True)
+        P = fit_subspace(model, tok, args.device, args.pairs, args.directions,
+                         args.seed, args.contrast, args.fit_mode)
     print(f"  subspace {tuple(P.shape)}", flush=True)
     torch.save(P, out_dir / "refusal_subspace.pt")
 
@@ -347,7 +401,7 @@ def main() -> None:
         print(f"rewriting {shard}...", flush=True)
         tensors = load_file(model_dir / shard)
         for key in list(tensors.keys()):
-            if not is_target_key(key):
+            if not is_target_key(key, args.layer_lo, args.layer_hi):
                 continue
             w = tensors[key]
             tensors[key] = (
