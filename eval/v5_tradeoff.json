@@ -27,5 +27,53 @@
     "v5_clean_answers": 10,
     "v5_degenerate": 1
   },
-  "verdict": "not a strict improvement over v1/v3 on this project terms: refusal halved but args-exact 100->89 and abstention 91%->76%. Likely cause: tool slice taken from tok_train_v4 (75% abstention) rather than tok_train_v3 (91%)."
+  "verdict": "v5 failed. It halved prose refusals (17/20->9/20) but collapsed tool calling: BFCL call rate 26.5%, worst measured, balanced 41.71 vs v1's 93.15. Cause: 22% prose-heavy airoboros layered on a tool slice (tok_train_v4) that was already 75% abstention. Not shipped. The v6 fix (tool slice from tok_train_v3, 91% abstention, and much less prose) is untested.",
+  "bfcl_v4": {
+    "note": "v5's high irrelevance is refusal collapse, not capability. Judged on balanced_score.",
+    "rows": [
+      {
+        "model": "v1 (shipped)",
+        "irrelevance": 89.17,
+        "multiple_ast": 37.0,
+        "call_rate": 97.5,
+        "balanced": 93.15
+      },
+      {
+        "model": "8B reference",
+        "irrelevance": 88.33,
+        "multiple_ast": 34.5,
+        "call_rate": 91.0,
+        "balanced": 89.65
+      },
+      {
+        "model": "base (untrained)",
+        "irrelevance": 87.5,
+        "multiple_ast": 33.5,
+        "call_rate": 93.5,
+        "balanced": 90.4
+      },
+      {
+        "model": "seed1337 abliterated",
+        "irrelevance": 96.25,
+        "multiple_ast": 18.5,
+        "call_rate": 47.5,
+        "balanced": 63.61
+      },
+      {
+        "model": "seed1337",
+        "irrelevance": 97.5,
+        "multiple_ast": 12.5,
+        "call_rate": 32.5,
+        "balanced": 48.75
+      },
+      {
+        "model": "v5 (this run)",
+        "irrelevance": 97.92,
+        "multiple_ast": 9.0,
+        "call_rate": 26.5,
+        "balanced": 41.71
+      }
+    ],
+    "verdict": "v5 is the WORST model here on the balanced metric. Lowest tool-call rate of any model measured (26.5%). Its 97.92% irrelevance comes from declining to call tools, which is what irrelevance rewards. The v5 run FAILED."
+  }
 }

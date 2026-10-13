@@ -318,14 +318,44 @@ that the same subspace edit now costs more than it removes.
 args-exact falls 100 → 89 against v3, and abstention 91% → 76%. The likely cause is known:
 the tool-calling slice was drawn from `tok_train_v4`, whose own abstention rate is 75%, when
 `tok_train_v3` scores 91% on the same eval. The mixture inherited v4's weakness. A v6 that
-draws the same tool slice from **v3** should recover it — untested here, and the honest reason
+draws the same slice from **v3** should recover it — untested here, and the honest reason
 not to ship v5 as an upgrade over v1 on this project's own terms.
 
 Tool-call *format* still holds: 3/3 called on a direct probe and 2/2 abstained on non-tool
 prompts, and the ablated model matched that. It is argument accuracy and abstention that moved.
 
-**Not a jailbreak.** Half the prompts still refuse. `v5-abl-k96` refuses only 1/20 and is
-shipped nowhere — it is a model that cannot write sentences.
+### v5 on BFCL: 97.92% irrelevance is a trap, and v5 is the worst model here
+
+The in-distribution eval did not catch what BFCL did. v5 scores **97.92% irrelevance** — the
+highest number in this repo, above v1's 89.17% and above seed-1337's 97.50%. It is also the
+**worst model on the metric that matters**:
+
+| Model | Irrelevance | Multiple AST | Call rate | **Balanced** |
+|---|---:|---:|---:|---:|
+| v1 (shipped) | 89.17% | 37.00% | 97.5% | **93.15** |
+| 8B reference | 88.33% | 34.50% | 91.0% | 89.65 |
+| base (untrained) | 87.50% | 33.50% | 93.5% | 90.40 |
+| seed1337 abliterated | 96.25% | 18.50% | 47.5% | 63.61 ⚠️ |
+| seed1337 | 97.50% | 12.50% | 32.5% | 48.75 ⚠️ |
+| **v5** | **97.92%** | **9.00%** | **26.5%** | **41.71** ⚠️ worst |
+
+v5 emits a tool call on only **26.5%** of Multiple (AST) entries — the lowest of any model
+measured here, below even seed-1337's collapse. It scores 97.92% on irrelevance *because* it
+declines to call tools, which is precisely what irrelevance rewards. This is the exact failure
+mode `scripts/balanced_score.py` exists to catch, and it caught it.
+
+So the v5 run **failed**. Its refusal reduction on prose prompts was real (17/20 → 9/20) but it
+bought that by pushing the model toward prose answers and away from tool calls. The 22%
+airoboros share is prose-heavy by construction, and it was layered on top of a tool slice that
+was already abstention-heavy.
+
+Two lessons worth recording, both of which cost time:
+
+- **The in-distribution eval is not a guard against this.** It is built from the same source
+  families as training, so it reported 106/120 calls and 76% abstention — plausible-looking, and
+  nowhere near as bad as BFCL's 26.5% call rate. Only the held-out benchmark saw it.
+- **A refusal-reduction experiment must be judged on the balanced metric from the start.** The
+  20-prompt strict probe cannot detect tool-calling collapse, and it did not.
 
 ### Notes on method
 
