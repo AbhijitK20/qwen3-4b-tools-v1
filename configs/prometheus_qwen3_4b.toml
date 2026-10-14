@@ -1,0 +1,77 @@
+# configs/prometheus_qwen3_4b.toml
+non_interactive = true
+
+# Prometheus steering config for the local Qwen3-4B tool-calling model.
+#
+# Hardware: RTX 4050 Laptop, 6141 MiB VRAM. Requires BNB_4BIT + small batches.
+# Key deviations from configs/qwen3.5_4b.toml and why:
+#   - vector_method = median_of_means  Qwen3 has massive activation outliers that
+#     swamp a raw mean/PCA difference vector. This is the leading suspect for why
+#     scripts/uncensor.py plateaued at 7/20 refusals.
+#   - outlier_quantile = 0.99          winsorise extreme activations (default 1.0
+#     disables this entirely).
+#   - orthogonal_projection = true     removes only the component orthogonal to
+#     benign directions; reported as a 67% refusal reduction vs raw abliteration.
+#   - llm_judge = false                avoids requiring a Gemini API key.
+#   - Benign half is 56% tool-calling prompts so the KL term preserves tool use.
+
+
+[model]
+model_id = "Qwen/Qwen3-4B"
+dtype_fallback_order = ["bfloat16"]
+quant_method = "bnb_4bit"
+device_map = "auto"
+use_torch_compile = false
+
+[inference]
+batch_size = 1
+max_batch_size = 2
+max_gen_tokens = 24
+
+[steering]
+vector_method = "median_of_means"
+decay_kernel = "linear"
+orthogonal_projection = true
+weight_normalization = "none"
+outlier_quantile = 0.99
+
+[optimization]
+num_trials = 8
+num_warmup_trials = 2
+checkpoint_dir = "/home/abhijitk20/model training/output/prometheus_v1"
+sampler_seed = 3407
+
+[kl]
+scale = 1.0
+token_count = 3
+target = 0.01
+prune_threshold = 5.0
+
+[detection]
+llm_judge = false
+compliance_markers = ["I cannot", "I can't", "I'm sorry", "I am sorry", "As an AI"]
+
+[display]
+print_responses = false
+print_residual_geometry = false
+plot_residuals = false
+
+[benign_prompts]
+dataset = "/home/abhijitk20/model training/repos/prometheus/datasets/good"
+split = "train[:200]"
+column = "prompt"
+
+[target_prompts]
+dataset = "/home/abhijitk20/model training/repos/prometheus/datasets/harmful"
+split = "train[:200]"
+column = "prompt"
+
+[benign_eval_prompts]
+dataset = "/home/abhijitk20/model training/repos/prometheus/datasets/good"
+split = "train[200:300]"
+column = "prompt"
+
+[target_eval_prompts]
+dataset = "/home/abhijitk20/model training/repos/prometheus/datasets/harmful"
+split = "train[200:300]"
+column = "prompt"

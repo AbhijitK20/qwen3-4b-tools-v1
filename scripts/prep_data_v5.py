@@ -24,7 +24,7 @@ answer the request -- and it is the only slice that targets the refusal itself.
 Airoboros is 0.3% refusal-language overall but only 1.1% of its prompts are edgy,
 so it shifts general helpfulness, not safety behaviour specifically.
 
-Output: data/train_v5.jsonl, data/val_v5.jsonl (new data only, project format),
+Output: data/train_v6.jsonl, data/val_v6.jsonl (new data only, project format),
 then pretokenize.py builds tok_train_v5 and this script concatenates the
 tool-calling slice into data/tok_train_v5_full for training.
 """
@@ -46,8 +46,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--compliance", default="data/compliance_distil.jsonl")
     ap.add_argument("--airoboros", default="data/hf/airoboros.jsonl")
-    ap.add_argument("--n-airoboros", type=int, default=2000)
-    ap.add_argument("--n-tool", type=int, default=7000)
+    ap.add_argument("--n-airoboros", type=int, default=400)
+    ap.add_argument("--n-tool", type=int, default=8200)
+    ap.add_argument("--tool-source", default="tok_train_v4",
+                    help="v4 = 75%% abstention, v3 = 91%%. v6 uses v3.")
     ap.add_argument("--val-compliance", type=int, default=24)
     ap.add_argument("--seed", type=int, default=3407)
     args = ap.parse_args()
@@ -78,7 +80,7 @@ def main() -> None:
     rng.shuffle(new_rows)
 
     for split, rows in (("train", new_rows), ("val", val_c)):
-        out = BASE / f"data/{split}_v5.jsonl"
+        out = BASE / f"data/{split}_v6.jsonl"
         with out.open("w") as fh:
             for r in rows:
                 fh.write(json.dumps(r) + "\n")

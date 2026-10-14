@@ -137,6 +137,9 @@ RESULT_DIR_ALIASES = {
     "qwen3-8b (reference)": "qwen3-8b-ref",
     "seed1337": "qwen3-4b-s1337",
     "seed1337 abliterated": "qwen3-4b-abliterated",
+    "v6 LoRA tool-first": "qwen3-4b-v6",
+    "prometheus steered v1": "qwen3-4b-v1-prom",
+    "qwen3-4b-v5 (ours)": "qwen3-4b-v5",
 }
 
 

@@ -83,9 +83,9 @@ def quantize(merged_dir, work_dir):
     """Merge fp16 -> f32 GGUF -> Q4_K_M. Returns gguf path or None."""
     merged_dir, work_dir = Path(merged_dir), Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
-    f32 = work_dir / "f32.gguf"
+    f32 = work_dir / "f16.gguf"
 
-    log("fp16 safetensors -> f32 GGUF")
+    log("fp16 safetensors -> f16 GGUF")
     try:
         import unsloth  # noqa: F401  (must precede transformers/peft)
         from unsloth import FastLanguageModel
@@ -96,7 +96,7 @@ def quantize(merged_dir, work_dir):
         # save_pretrained_gguf is attached by unsloth_zoo.llama_cpp on load;
         # importing that submodule registers it on the model instances.
         import unsloth_zoo.llama_cpp  # noqa: F401
-        log("unsloth gguf writer -> f32")
+        log("unsloth gguf writer -> f16")
         model.save_pretrained_gguf(str(f32))
         del model
     except Exception as e:  # noqa: BLE001
@@ -107,7 +107,7 @@ def quantize(merged_dir, work_dir):
             return None
         r = subprocess.run(
             [sys.executable, str(conv), str(merged_dir),
-             "--outfile", str(f32), "--outtype", "f32"],
+             "--outfile", str(f32), "--outtype", "f16"],
             capture_output=True, text=True,
         )
         if r.returncode != 0:
@@ -129,6 +129,7 @@ def quantize(merged_dir, work_dir):
         )
         if r.returncode == 0 and dst.exists() and dst.stat().st_size > 500_000_000:
             log(f"{qt} ok ({dst.stat().st_size / 1e9:.2f} GB)")
+            f32.unlink(missing_ok=True)
             return dst
         log(f"{qt} failed: {(r.stderr or '')[-400:]}")
     return None

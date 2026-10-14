@@ -1,0 +1,31 @@
+{
+  "benchmark": "BFCL v4 (non-live subset)",
+  "metric": "harmonic_mean(irrelevance_accuracy, multiple_call_rate)",
+  "rationale": "Irrelevance rewards declining to call a tool and is maximised by an always-refuse model. Pairing it with Multiple (AST), which requires calling, makes an always-decline model score ~22 instead of looking like a 97.5% model.",
+  "degenerate_call_rate_threshold": 50.0,
+  "rows": [
+    {
+      "model": "v6 LoRA tool-first",
+      "result_dir": "qwen3-4b-v6",
+      "irrelevance": 94.17,
+      "multiple_ast": 32.5,
+      "multiple_call_rate": 86.0,
+      "combined_harmonic": 89.9,
+      "degenerate": false
+    }
+  ],
+  "caveat": "Non-Live Overall Acc is intentionally not used: only some categories were run, so unscored categories contribute zero and make that column meaningless.",
+  "strict_probe": {
+    "model": "qwen3-4b-v6",
+    "refused": 6,
+    "degenerate": 2,
+    "nonanswer": 0,
+    "thin": 1,
+    "clean": 13,
+    "n": 20
+  },
+  "adapter": "output/full4b_v6",
+  "train_steps": 700,
+  "train_loss": 0.2931,
+  "verdict": "Best prose-uncensoring LoRA to date (6/20 refused vs v1 17/20) and near-full recovery of v5 tool-calling collapse, but combined 89.90 still below v1 93.15."
+}
