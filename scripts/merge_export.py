@@ -54,7 +54,7 @@ def find_adapter(path):
     raise SystemExit(f"[merge] no adapter found at {path}")
 
 
-def merge_fp16(base_dir, adapter_dir, out_dir):
+def merge_fp16(base_dir, adapter_dir, out_dir, scale=1.0):
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -69,6 +69,12 @@ def merge_fp16(base_dir, adapter_dir, out_dir):
     )
     log(f"applying adapter: {adapter_dir}")
     model = PeftModel.from_pretrained(model, str(adapter_dir))
+    if scale != 1.0:
+        log(f"scaling adapter delta by {scale}")
+        for module in model.modules():
+            if hasattr(module, "lora_B") and hasattr(module, "scaling"):
+                for key in module.scaling:
+                    module.scaling[key] = module.scaling[key] * scale
     log("merging (this is the slow part, several minutes)")
     model = model.merge_and_unload()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -144,10 +150,10 @@ def ollama_create(gguf_path, name, merged_dir):
         f"FROM {gguf_path}\n"
         f"PARAMETER num_ctx 4096\n"
         f"PARAMETER temperature 0.6\n"
-        f"PARAMETER stop \"<|im_end|>\"\n"
-        f"TEMPLATE {{ if .Tools }}<|im_start|>system\n{{ . }}<|im_end|>\n"
-        f"{{ range .Messages }}<|im_start|>{{ .Role }}\n{{ .Content }}<|im_end|>\n{{ end }}"
-        f"<|im_start|>assistant\n{{ end }}"
+        f'PARAMETER stop ""\n'
+        f'TEMPLATE "{{ if .Tools }}system\\n{{ . }}\\n'
+        f'{{{{ range .Messages }}}}{{{{ .Role }}}}\\n{{{{ .Content }}}}\\n{{{{ end }}}}\\n'
+        f'assistant\\n{{{{ end }}}}"\n'
     )
     log(f"ollama create {name}")
     env = dict(os.environ, OLLAMA_HOST="http://127.0.0.1:11434")
@@ -166,14 +172,18 @@ def main():
     ap.add_argument("--out", default=str(BASE / "output" / "merged-4b"))
     ap.add_argument("--name", default=GGUF_NAME)
     ap.add_argument("--skip-gguf", action="store_true")
+    ap.add_argument("--base", default=None,
+                    help="explicit base model dir (e.g. a previously merged model)")
+    ap.add_argument("--scale", type=float, default=1.0,
+                    help="scale the LoRA delta before merging; <1.0 walks back toward the base")
     args = ap.parse_args()
 
-    base_dir = find_fp16_base()
+    base_dir = Path(args.base) if args.base else find_fp16_base()
     adapter = find_adapter(args.adapter)
     out_dir = Path(args.out)
     log(f"base={base_dir.name} adapter={adapter} out={out_dir.name}")
 
-    merge_fp16(base_dir, adapter, out_dir)
+    merge_fp16(base_dir, adapter, out_dir, args.scale)
 
     if args.skip_gguf:
         return 0

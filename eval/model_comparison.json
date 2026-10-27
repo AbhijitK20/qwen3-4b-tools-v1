@@ -1,0 +1,80 @@
+[
+  {
+    "model": "qwen3-4b-tools-q4km",
+    "params": "4.0B",
+    "n_attack": 1402,
+    "refused": 0.4936,
+    "ASR": 0.4957,
+    "persona_adoption": 0.2214,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.138,
+    "degenerate": 0.024,
+    "balanced": 0.6363
+  },
+  {
+    "model": "qwen3-4b-v5",
+    "params": "4.0B",
+    "n_attack": 1402,
+    "refused": 0.2917,
+    "ASR": 0.6797,
+    "persona_adoption": 0.5714,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.068,
+    "degenerate": 0.022,
+    "balanced": 0.4768
+  },
+  {
+    "model": "qwen3-4b-v6",
+    "params": "4.0B",
+    "n_attack": 1402,
+    "refused": 0.2739,
+    "ASR": 0.7175,
+    "persona_adoption": 0.5071,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.06,
+    "degenerate": 0.004,
+    "balanced": 0.4344
+  },
+  {
+    "model": "qwen3-4b-v7h",
+    "params": "4.0B",
+    "n_attack": 1402,
+    "refused": 0.2553,
+    "ASR": 0.7347,
+    "persona_adoption": 0.5286,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.058,
+    "degenerate": 0.01,
+    "balanced": 0.414
+  },
+  {
+    "model": "qwen3-4b-v7",
+    "params": "4.0B",
+    "n_attack": 1402,
+    "refused": 0.2404,
+    "ASR": 0.7475,
+    "persona_adoption": 0.5714,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.058,
+    "degenerate": 0.008,
+    "balanced": 0.3983
+  },
+  {
+    "model": "sanraj-q3-1.7b",
+    "params": "1.7B",
+    "n_attack": 1402,
+    "refused": 0.1248,
+    "ASR": 0.8388,
+    "persona_adoption": 0.7286,
+    "marker_n": 140,
+    "n_benign": 500,
+    "FPR": 0.046,
+    "degenerate": 0.022,
+    "balanced": 0.2758
+  }
+]

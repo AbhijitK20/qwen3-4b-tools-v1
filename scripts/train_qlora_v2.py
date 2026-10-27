@@ -61,7 +61,11 @@ def main():
     args = ap.parse_args()
 
     slug = args.model.replace("/", "--")
-    model_path = glob.glob(str(BASE / f"hf_cache/hub/models--{slug}/snapshots/*/"))[0]
+    model_path = (
+        args.model
+        if os.path.isdir(args.model)
+        else glob.glob(str(BASE / f"hf_cache/hub/models--{slug}/snapshots/*/"))[0]
+    )
     print(f"[1] base model: {model_path}")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_path,

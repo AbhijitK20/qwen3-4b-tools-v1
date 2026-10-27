@@ -1,0 +1,70 @@
+{
+  "files": [
+    "jailbreak_2023_05_07/train-00000-of-00001.parquet",
+    "jailbreak_2023_12_25/train-00000-of-00001.parquet",
+    "regular_2023_05_07/train-00000-of-00001.parquet",
+    "regular_2023_12_25/train-00000-of-00001.parquet"
+  ],
+  "jailbreak_2023_05_07/train-00000-of-00001.parquet": {
+    "rows": 666,
+    "columns": [
+      "community_id",
+      "community_name",
+      "created_at",
+      "date",
+      "jailbreak",
+      "platform",
+      "prompt",
+      "source"
+    ],
+    "label_key": "jailbreak"
+  },
+  "jailbreak_2023_12_25/train-00000-of-00001.parquet": {
+    "rows": 1405,
+    "columns": [
+      "community",
+      "community_id",
+      "created_at",
+      "date",
+      "jailbreak",
+      "platform",
+      "previous_community_id",
+      "prompt",
+      "source"
+    ],
+    "label_key": "jailbreak"
+  },
+  "regular_2023_05_07/train-00000-of-00001.parquet": {
+    "rows": 5721,
+    "columns": [
+      "created_at",
+      "date",
+      "jailbreak",
+      "platform",
+      "prompt",
+      "source"
+    ],
+    "label_key": "jailbreak"
+  },
+  "regular_2023_12_25/train-00000-of-00001.parquet": {
+    "rows": 13735,
+    "columns": [
+      "created_at",
+      "date",
+      "jailbreak",
+      "platform",
+      "prompt",
+      "source"
+    ],
+    "label_key": "jailbreak"
+  },
+  "source": "TrustAIRLab/in-the-wild-jailbreak-prompts",
+  "paper": "arXiv:2308.03825 (ACM CCS 2024)",
+  "license": "MIT",
+  "subsets_expected": [
+    "jailbreak_2023_05_07",
+    "jailbreak_2023_12_25",
+    "regular_2023_05_07",
+    "regular_2023_12_25"
+  ]
+}

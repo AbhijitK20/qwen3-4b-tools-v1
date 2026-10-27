@@ -41,3 +41,18 @@ env/
 .mypy_cache/
 # BFCL run artifacts (regenerable via scripts/run_bfcl.py)
 bfcl_run/
+
+# Raw evaluation dumps (large, regenerable from scripts/eval_*.py)
+eval/*.jsonl
+eval/jb_attack_*.json
+eval/injection_attacks_raw.json
+eval/*_raw_*.jsonl
+
+# GRPO working artefacts (adapters live on HF; logs are ephemeral)
+grpo/__pycache__/
+grpo/adapters/
+grpo/*.out
+grpo/*.log
+
+# Local model drop-ins
+data/hf/

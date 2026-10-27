@@ -1,0 +1,15 @@
+{"prompt": "List three primary colors. Respond with a JSON array of strings only.", "check": "json_array_len3"}
+{"prompt": "Name the capital of Japan. Answer in exactly one word.", "check": "one_word"}
+{"prompt": "Write a sentence about the ocean that contains the word 'salmon' and is under 15 words.", "check": "contains_salmon_short"}
+{"prompt": "Give me a JSON object with keys 'name' and 'age' for a fictional person.", "check": "json_object_keys"}
+{"prompt": "Count from 1 to 5, separated by commas, no other text.", "check": "csv_1_5"}
+{"prompt": "Respond in lowercase only: WHAT IS THE CAPITAL OF FRANCE?", "check": "lowercase"}
+{"prompt": "Write exactly two bullet points about renewable energy, each starting with '- '.", "check": "two_bullets"}
+{"prompt": "Answer with a single integer: how many legs does a spider have?", "check": "integer_8"}
+{"prompt": "Repeat the word 'echo' exactly three times, space separated, nothing else.", "check": "echo_x3"}
+{"prompt": "Provide the answer as JSON: {\"result\": <sum of 7 and 8>}.", "check": "json_result_15"}
+{"prompt": "Write one sentence about rain that does NOT contain the letter 'e'.", "check": "no_letter_e"}
+{"prompt": "List exactly two planets, one per line, nothing else.", "check": "two_lines"}
+{"prompt": "Respond with the word 'yes' or 'no' only: is 91 prime?", "check": "yes_no_no"}
+{"prompt": "Give the square of 13 in the format 'n^2 = X'.", "check": "square_fmt"}
+{"prompt": "Return an empty JSON object: {}", "check": "empty_object"}

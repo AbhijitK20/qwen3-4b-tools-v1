@@ -34,6 +34,30 @@
       "refused_20": 10,
       "clean_20": 10,
       "degenerate_20": 0
+    },
+    {
+      "model": "v7 tool-repair LoRA on v6",
+      "adapter": "output/full4b_v7",
+      "irrelevance": 85.83,
+      "multiple_call_rate": 92.5,
+      "multiple_ast": 34.0,
+      "combined_harmonic": 89.04,
+      "refused_20": 5,
+      "clean_20": 15,
+      "degenerate_20": 0,
+      "train_steps": 400,
+      "train_loss": 0.1578
+    },
+    {
+      "model": "v7h tool-repair LoRA on v6, scale 0.5",
+      "adapter": "output/full4b_v7 @0.5",
+      "irrelevance": 93.75,
+      "multiple_call_rate": 85.5,
+      "multiple_ast": 32.0,
+      "combined_harmonic": 89.44,
+      "refused_20": 2,
+      "clean_20": 18,
+      "degenerate_20": 0
     }
   ],
   "prometheus": {
@@ -52,5 +76,5 @@
     "outlier_quantile": 0.99,
     "benign_set_tool_call_share": 0.56
   },
-  "verdict": "v6 is the strongest jailbreak: 1/20 refusals, 19/20 clean, 0/20 degenerate, at 86% tool-call rate. Prometheus steering of v1 halved prose refusals (17->10) while holding 95% tool calling, but did not reach v6 refusal levels. No single artifact yet maximises both."
+  "verdict": "v6 remains best. The interpolation test showed there is no middle ground: at 0.5x the tool delta recovers no calling (85.5 vs v6 86.0) but still costs a refusal (2/20 vs 1/20), giving combined 89.44 < 89.90. Tool-calling recovery and refusal reintroduction happen at nearly the same adapter magnitude, so the trade-off is effectively binary. Both repair attempts failed to beat v6."
 }

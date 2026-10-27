@@ -147,6 +147,11 @@ def register_models(
             license="Apache-2.0",
             model_handler=handler,
             is_fc_model=True,  # native function calling via the `tools` field
+            # OpenAI-compatible APIs forbid '.' in function names
+            # (^[a-zA-Z0-9_-]{1,64}$), so the model MUST call e.g.
+            # 'GeometryPresentation_createPresentation'. Without this flag BFCL's
+            # checker compares against the dotted 'Class.method' and scores 3%.
+            underscore_to_dot=True,
         )
 
     # The OpenAI handler reads these at construction time.

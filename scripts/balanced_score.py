@@ -139,7 +139,14 @@ RESULT_DIR_ALIASES = {
     "seed1337 abliterated": "qwen3-4b-abliterated",
     "v6 LoRA tool-first": "qwen3-4b-v6",
     "prometheus steered v1": "qwen3-4b-v1-prom",
+    "v7 tool repair": "qwen3-4b-v7",
+    "v7 half scale": "qwen3-4b-v7h",
     "qwen3-4b-v5 (ours)": "qwen3-4b-v5",
+    # Third-party baseline measured on the identical harness (scripts/jailbreak_probe.py,
+    # 1,902 prompts). Kept here so it is scored by the same balanced metric rather
+    # than compared by eye -- its low refusal rate reads as a win on any
+    # refusal-only view and a loss on this one.
+    "sanraj qwen3-1.7b-jailbreak": "sanraj-q3-1.7b",
 }
 
 
