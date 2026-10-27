@@ -1,4 +1,94 @@
-# Qwen3-4B Tool-Calling Fine-Tune (v1)
+# Qwen3-4B Tool-Calling & Terminal-Agent Fine-Tunes (v1 → v9)
+
+Two threads live in this repo:
+
+1. **v1–v8 — abstention.** Teaching `Qwen3-4B` **when not to call a tool**. Start at
+   [The result](#the-result).
+2. **v9 — terminal agent.** An uncensored 4B with strong single-turn tool calling and the
+   ability to drive a bash shell. Start at [v9](#v9--the-current-line).
+
+---
+
+## v9 — the current line
+
+v9 is a stack of four LoRAs on `Qwen3-4B`, each trained on top of the previous one. It exists
+because the earlier versions could *choose* a tool but could not *use a computer*.
+
+```
+Qwen3-4B
+  └─ heretic     abliteration     4/100 refusals (baseline 19/100), KL 0.0103
+      └─ tools   tool SFT         BFCL parallel 18.5 → 86.0
+          └─ terminal  terminal SFT   loss 1.2179 → 0.0538, 238 steps
+              └─ grpo  GRPO        25-task bash suite 11/25 → 15/25
+```
+
+### What each artefact is for
+
+| model | intended use | do **not** use it for |
+|---|---|---|
+| `v9-heretic` | uncensored chat/rewrite baseline | tool calling (parallel 18.5%) |
+| `v9-heretic-tools` | **single-turn tool / API calling**, schema-accurate, uncensored | agent loops, multi-step work |
+| `v9-terminal` | terminal formatting (correct terminus-2 JSON, real command execution) | tool calling — the SFT overwrote the native format |
+| `v9-grpo` | **bash task execution** on short, verifiable tasks | anything needing >8 turns of state |
+
+### Measured scores
+
+BFCL (1,664 cases, Ollama, `underscore_to_dot=True` so OpenAI-style names resolve):
+
+| category | v9-heretic | **v9-heretic-tools** |
+|---|---:|---:|
+| simple_python | 92.75 | **93.25** |
+| simple_java | 64.00 | 63.00 |
+| simple_javascript | 66.00 | 62.00 |
+| multiple | 94.00 | **95.50** |
+| parallel | 18.50 | **86.00** |
+| parallel_multiple | 56.50 | **76.50** |
+| irrelevance | 3.33 | **65.83** |
+| live_simple | 74.42 | 71.71 |
+| live_relevance | **100.00** | 75.00 |
+| **multi_turn_base** | 6.00 | 8.00 |
+
+Everything else:
+
+| benchmark | v9-heretic | v9-heretic-tools | v9-terminal | **v9-grpo** |
+|---|---:|---:|---:|---:|
+| 25-task bash suite (greedy) | — | — | 11/25 (0.560) | **15/25 (0.700)** |
+| BFCL multi_turn_base | 6.00 | 8.00 | **2.50** | — |
+| IFEval inst_strict | 0.5959 | **0.6019** | — | — |
+| IFEval prompt_loose | 0.5009 | **0.5268** | — | — |
+| GSM8K (300, 256-tok cap) | **0.6433** | 0.6100 | — | — |
+| harmful refusals | 0/40 | 0/40 | — | — |
+| harmless refusals | 0/40 | 0/40 | — | — |
+
+### Terminal-Bench 2.0 — unmeasured, not zero
+
+The only TBench run attempted 89 tasks and **70 died on Docker registry DNS**. Of the 19 that
+executed, 0 passed. That is not a score: with 0/19 the 95 % upper bound on the true rate is
+14.6 %, so the data cannot distinguish this model from a 15 % model. A later 16k-context probe
+(10 tasks) produced 3 completed trials, 3 `AgentTimeoutError`, and `No valid JSON object found`
+parser failures — the 6 GB local GPU spills to CPU and blows the agent timeout.
+
+**Do not quote 0 %.** The defensible statement is "0 of 19 tasks that executed; 70 blocked by
+infrastructure."
+
+### What v9 actually proves
+
+- **Single-turn tool selection is solved at 4B** — 95.5 % multiple, 86 % parallel, above the
+  published 4B field (Qwen3-4B-Instruct-2507 35.7 %, Qwen3.5-4B 50.3 % on BFCL v4 — different
+  harness, so treat as a bracket, not a ranking).
+- **Multi-turn is not.** 2.5–8 % on BFCL multi-turn. SFT fixed the *format* and GRPO added +4
+  tasks, but neither moved multi-turn. That is the 4B ceiling, not a tuning bug.
+- **Abliteration costs nothing measurable** — 0/40 refusals while IFEval and GSM8K stay put.
+
+### Limitations
+
+- Multi-turn / long-horizon agent work is broken at 4B. Use a bigger base.
+- All numbers are self-run on our own harnesses, not submitted to any leaderboard.
+- `v9-heretic-tools-q4km.gguf` on the HDD is truncated (12 MB instead of 2.4 GB). The adapter is
+  intact; the GGUF must be rebuilt.
+- GRPO was measured on 25 short bash tasks. It does not follow that Terminal-Bench improves.
+
+---
 
 A LoRA fine-tune of `Qwen3-4B` that teaches the model **when not to call a tool**.
 
