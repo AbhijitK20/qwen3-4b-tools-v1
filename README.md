@@ -14,6 +14,14 @@ Two threads live in this repo:
 v9 is a stack of four LoRAs on `Qwen3-4B`, each trained on top of the previous one. It exists
 because the earlier versions could *choose* a tool but could not *use a computer*.
 
+| | |
+|---|---|
+| 🤗 **v9 weights + GGUFs** | [`AbhijitK20/qwen3-4b-terminal`](https://huggingface.co/AbhijitK20/qwen3-4b-terminal) |
+| 📦 `gguf/v9-grpo-Q5_K_M.gguf` | 2.89 GB, the combined model (best bash-task scores) |
+| 📦 `gguf/v9-terminal-Q5.gguf` | 2.89 GB, pre-GRPO, for A/B |
+| 📦 `gguf/v9-heretic-q4km.gguf` | 2.50 GB, uncensored base without tool/terminal SFT |
+| 🧩 `adapters/` | heretic, tools, terminal LoRAs |
+
 ```
 Qwen3-4B
   └─ heretic     abliteration     4/100 refusals (baseline 19/100), KL 0.0103
